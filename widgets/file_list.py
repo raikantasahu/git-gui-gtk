@@ -97,10 +97,9 @@ class FileListWidget(Gtk.Box):
         # Double-click handling
         self._tree_view.connect('row-activated', self._on_row_activated)
 
-        # Context menu for unstaged files
-        if not staged:
-            self._context_menu = self._create_context_menu()
-            self._tree_view.connect('button-press-event', self._on_button_press)
+        # Context menu
+        self._context_menu = self._create_context_menu()
+        self._tree_view.connect('button-press-event', self._on_button_press)
 
         scrolled.add(self._tree_view)
         self.pack_start(scrolled, True, True, 0)
@@ -144,21 +143,27 @@ class FileListWidget(Gtk.Box):
             self.emit('file-activated', self._files[idx])
 
     def _create_context_menu(self):
-        """Create context menu for unstaged files."""
+        """Create context menu for file list."""
         menu = Gtk.Menu()
 
-        # Stage to Commit
-        stage_item = Gtk.MenuItem(label='Stage to Commit')
-        stage_item.connect('activate', self._on_context_stage)
-        menu.append(stage_item)
+        if self.staged:
+            # Unstage from Commit
+            unstage_item = Gtk.MenuItem(label='Unstage from Commit')
+            unstage_item.connect('activate', self._on_context_unstage)
+            menu.append(unstage_item)
+        else:
+            # Stage to Commit
+            stage_item = Gtk.MenuItem(label='Stage to Commit')
+            stage_item.connect('activate', self._on_context_stage)
+            menu.append(stage_item)
 
-        # Separator
-        menu.append(Gtk.SeparatorMenuItem())
+            # Separator
+            menu.append(Gtk.SeparatorMenuItem())
 
-        # Revert Changes
-        revert_item = Gtk.MenuItem(label='Revert Changes')
-        revert_item.connect('activate', self._on_context_revert)
-        menu.append(revert_item)
+            # Revert Changes
+            revert_item = Gtk.MenuItem(label='Revert Changes')
+            revert_item.connect('activate', self._on_context_revert)
+            menu.append(revert_item)
 
         menu.show_all()
         return menu
@@ -177,6 +182,12 @@ class FileListWidget(Gtk.Box):
 
     def _on_context_stage(self, menu_item):
         """Handle Stage to Commit context menu action."""
+        file_change = self.get_selected_file()
+        if file_change:
+            self.emit('file-activated', file_change)
+
+    def _on_context_unstage(self, menu_item):
+        """Handle Unstage from Commit context menu action."""
         file_change = self.get_selected_file()
         if file_change:
             self.emit('file-activated', file_change)
