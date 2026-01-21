@@ -75,15 +75,11 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         main_box.pack_start(toolbar, False, False, 0)
         main_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
 
-        # Main content paned
-        main_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        # Main horizontal paned: file lists on left, diff+commit on right
+        main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         main_paned.set_vexpand(True)
 
-        # Upper section: file lists and diff view
-        upper_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        upper_paned.set_vexpand(True)
-
-        # Left side: file lists
+        # Left side: file lists (full vertical space)
         file_lists_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         file_lists_box.set_size_request(280, -1)
 
@@ -104,24 +100,27 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._staged_list.connect('file-activated', self._on_staged_file_activated)
         file_lists_box.pack_start(self._staged_list, True, True, 0)
 
-        upper_paned.pack1(file_lists_box, resize=False, shrink=False)
+        main_paned.pack1(file_lists_box, resize=False, shrink=False)
 
-        # Right side: diff view
+        # Right side: diff view and commit area stacked vertically
+        right_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        right_paned.set_hexpand(True)
+
+        # Diff view (top)
         self._diff_view = DiffView()
-        self._diff_view.set_hexpand(True)
-        upper_paned.pack2(self._diff_view, resize=True, shrink=False)
+        self._diff_view.set_vexpand(True)
+        right_paned.pack1(self._diff_view, resize=True, shrink=False)
 
-        main_paned.pack1(upper_paned, resize=True, shrink=False)
-
-        # Lower section: commit area
+        # Commit area (bottom)
         self._commit_area = CommitArea()
         self._commit_area.set_size_request(-1, 180)
         self._commit_area.connect('commit-requested', self._on_commit_requested)
         self._commit_area.connect('push-requested', lambda w: self.do_push())
         self._commit_area.connect('pull-requested', lambda w: self.do_pull())
         self._commit_area.connect('rescan-requested', lambda w: self.rescan())
+        right_paned.pack2(self._commit_area, resize=False, shrink=False)
 
-        main_paned.pack2(self._commit_area, resize=False, shrink=False)
+        main_paned.pack2(right_paned, resize=True, shrink=False)
 
         main_box.pack_start(main_paned, True, True, 0)
 
