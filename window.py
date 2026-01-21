@@ -210,6 +210,16 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         remote_item = Gtk.MenuItem(label='Remote')
         remote_item.set_submenu(remote_menu)
 
+        list_remotes_item = Gtk.MenuItem(label='List')
+        list_remotes_item.connect('activate', lambda w: self._show_list_remotes_dialog())
+        remote_menu.append(list_remotes_item)
+
+        add_remote_item = Gtk.MenuItem(label='Add...')
+        add_remote_item.connect('activate', lambda w: self._show_add_remote_dialog())
+        remote_menu.append(add_remote_item)
+
+        remote_menu.append(Gtk.SeparatorMenuItem())
+
         fetch_item = Gtk.MenuItem(label='Fetch')
         fetch_item.connect('activate', lambda w: self.do_fetch())
         remote_menu.append(fetch_item)
@@ -776,6 +786,109 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status(message)
             if not success:
                 self._show_error('Delete Branch Error', message)
+
+    def _show_list_remotes_dialog(self):
+        """Show dialog listing all remotes."""
+        remotes = self._git.get_remotes_with_urls()
+
+        dialog = Gtk.Dialog(
+            title='Remotes',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+        dialog.set_default_size(500, 200)
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        if not remotes:
+            label = Gtk.Label(label='No remotes configured.')
+            content.pack_start(label, True, True, 0)
+        else:
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scrolled.set_vexpand(True)
+
+            # Create list store: name, url
+            store = Gtk.ListStore(str, str)
+            for name, url in remotes.items():
+                store.append([name, url])
+
+            tree_view = Gtk.TreeView(model=store)
+            tree_view.set_headers_visible(True)
+
+            name_renderer = Gtk.CellRendererText()
+            name_column = Gtk.TreeViewColumn('Name', name_renderer, text=0)
+            name_column.set_min_width(100)
+            tree_view.append_column(name_column)
+
+            url_renderer = Gtk.CellRendererText()
+            url_column = Gtk.TreeViewColumn('URL', url_renderer, text=1)
+            url_column.set_expand(True)
+            tree_view.append_column(url_column)
+
+            scrolled.add(tree_view)
+            content.pack_start(scrolled, True, True, 0)
+
+        dialog.show_all()
+        dialog.run()
+        dialog.destroy()
+
+    def _show_add_remote_dialog(self):
+        """Show dialog to add a new remote."""
+        dialog = Gtk.Dialog(
+            title='Add Remote',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+        dialog.set_default_size(500, 200)
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        name_label = Gtk.Label(label='Remote name:')
+        name_label.set_xalign(0)
+        content.pack_start(name_label, False, False, 0)
+
+        name_entry = Gtk.Entry()
+        name_entry.set_text('origin')
+        content.pack_start(name_entry, False, False, 0)
+
+        url_label = Gtk.Label(label='Remote URL:')
+        url_label.set_xalign(0)
+        content.pack_start(url_label, False, False, 0)
+
+        url_entry = Gtk.Entry()
+        url_entry.set_activates_default(True)
+        url_entry.set_placeholder_text('https://github.com/user/repo.git')
+        content.pack_start(url_entry, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        name = name_entry.get_text().strip()
+        url = url_entry.get_text().strip()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and name and url:
+            success, message = self._git.add_remote(name, url)
+            self._set_status(message)
+            if not success:
+                self._show_error('Add Remote Error', message)
 
     def _show_reset_branch_dialog(self):
         """Show dialog to reset current branch."""

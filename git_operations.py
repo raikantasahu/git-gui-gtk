@@ -430,10 +430,33 @@ class GitOperations:
             return False, str(e)
 
     def get_remotes(self) -> list[str]:
-        """Get list of remotes."""
+        """Get list of remote names."""
         if not self.repo:
             return []
         return [r.name for r in self.repo.remotes]
+
+    def get_remotes_with_urls(self) -> dict[str, str]:
+        """Get dict of remote names to URLs."""
+        if not self.repo:
+            return {}
+        return {r.name: r.url for r in self.repo.remotes}
+
+    def add_remote(self, name: str, url: str) -> tuple[bool, str]:
+        """Add a new remote.
+
+        Args:
+            name: Remote name
+            url: Remote URL
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.create_remote(name, url)
+            return True, f'Remote {name} added'
+        except GitCommandError as e:
+            return False, str(e)
+        except Exception as e:
+            return False, str(e)
 
     def get_log(self, max_count: int = 50) -> list[dict]:
         """Get commit log.
