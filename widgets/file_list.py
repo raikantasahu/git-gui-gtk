@@ -13,12 +13,12 @@ from git_operations import FileChange, FileStatus
 CSS = b'''
 .unstaged-header {
     background-color: #f5d0c8;
-    padding: 6px;
+    padding: 2px 6px;
     font-weight: bold;
 }
 .staged-header {
     background-color: #c8f5c8;
-    padding: 6px;
+    padding: 2px 6px;
     font-weight: bold;
 }
 '''
@@ -52,6 +52,7 @@ class FileListWidget(Gtk.Box):
 
         # Header with title and action buttons
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header.set_size_request(-1, 24)
         if staged:
             header.get_style_context().add_class('staged-header')
         else:
@@ -66,20 +67,19 @@ class FileListWidget(Gtk.Box):
         self._count_label = Gtk.Label(label='0')
         header.pack_start(self._count_label, False, False, 0)
 
-        # Stage/Unstage all button
+        # Stage/Unstage all icon (using EventBox for minimal size)
         if staged:
-            btn = Gtk.Button()
-            btn_icon = Gtk.Image.new_from_icon_name('list-remove-symbolic', Gtk.IconSize.BUTTON)
-            btn.add(btn_icon)
-            btn.set_tooltip_text('Unstage All')
-            btn.connect('clicked', lambda b: self.emit('file-activated', None))
+            icon = Gtk.Image.new_from_icon_name('list-remove-symbolic', Gtk.IconSize.MENU)
+            tooltip = 'Unstage All'
         else:
-            btn = Gtk.Button()
-            btn_icon = Gtk.Image.new_from_icon_name('list-add-symbolic', Gtk.IconSize.BUTTON)
-            btn.add(btn_icon)
-            btn.set_tooltip_text('Stage All')
-            btn.connect('clicked', lambda b: self.emit('file-activated', None))
-        header.pack_start(btn, False, False, 0)
+            icon = Gtk.Image.new_from_icon_name('list-add-symbolic', Gtk.IconSize.MENU)
+            tooltip = 'Stage All'
+
+        event_box = Gtk.EventBox()
+        event_box.add(icon)
+        event_box.set_tooltip_text(tooltip)
+        event_box.connect('button-press-event', lambda w, e: self.emit('file-activated', None))
+        header.pack_start(event_box, False, False, 0)
 
         self.pack_start(header, False, False, 0)
 

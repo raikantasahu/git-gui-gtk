@@ -12,7 +12,7 @@ from gi.repository import Gtk, Gdk, GtkSource
 CSS = b'''
 .diff-header {
     background-color: #FFD700;
-    padding: 6px;
+    padding: 2px 6px;
     font-weight: bold;
 }
 '''
@@ -37,6 +37,7 @@ class DiffView(Gtk.Box):
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header.set_size_request(-1, 24)
         header.get_style_context().add_class('diff-header')
 
         # Status label (e.g., "Modified, not staged")

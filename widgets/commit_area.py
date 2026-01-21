@@ -10,6 +10,8 @@ from gi.repository import Gtk, Gdk, GObject
 # CSS for header styling
 CSS = b'''
 .commit-header {
+    background-color: #e8e8e8;
+    padding: 2px 6px;
     font-weight: bold;
 }
 '''
@@ -47,23 +49,13 @@ class CommitArea(Gtk.Box):
 
         # Header with title
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header.set_size_request(-1, 24)
         header.get_style_context().add_class('commit-header')
 
         title_label = Gtk.Label(label='Commit Message')
         title_label.set_xalign(0)
         title_label.set_hexpand(True)
         header.pack_start(title_label, True, True, 0)
-
-        # Sign-off checkbox
-        self._signoff_check = Gtk.CheckButton(label='Sign Off')
-        self._signoff_check.set_tooltip_text('Add Signed-off-by line')
-        header.pack_start(self._signoff_check, False, False, 0)
-
-        # Amend checkbox
-        self._amend_check = Gtk.CheckButton(label='Amend Last Commit')
-        self._amend_check.set_tooltip_text('Amend the last commit')
-        self._amend_check.connect('toggled', self._on_amend_toggled)
-        header.pack_start(self._amend_check, False, False, 0)
 
         self.pack_start(header, False, False, 0)
 
@@ -88,7 +80,17 @@ class CommitArea(Gtk.Box):
 
         # Action buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        button_box.set_halign(Gtk.Align.END)
+
+        # Sign-off checkbox
+        self._signoff_check = Gtk.CheckButton(label='Sign Off')
+        self._signoff_check.set_tooltip_text('Add Signed-off-by line')
+        button_box.pack_start(self._signoff_check, False, False, 0)
+
+        # Amend checkbox
+        self._amend_check = Gtk.CheckButton(label='Amend Last Commit')
+        self._amend_check.set_tooltip_text('Amend the last commit')
+        self._amend_check.connect('toggled', self._on_amend_toggled)
+        button_box.pack_start(self._amend_check, False, False, 0)
 
         # Rescan button
         rescan_btn = Gtk.Button(label='Rescan')
