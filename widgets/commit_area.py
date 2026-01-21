@@ -4,7 +4,15 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, GObject
+from gi.repository import Gtk, Gdk, GObject
+
+
+# CSS for header styling
+CSS = b'''
+.commit-header {
+    font-weight: bold;
+}
+'''
 
 
 class CommitArea(Gtk.Box):
@@ -28,8 +36,18 @@ class CommitArea(Gtk.Box):
 
         self._amend_mode = False
 
+        # Apply CSS
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
         # Header with title
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header.get_style_context().add_class('commit-header')
 
         title_label = Gtk.Label(label='Commit Message')
         title_label.set_xalign(0)
@@ -42,7 +60,7 @@ class CommitArea(Gtk.Box):
         header.pack_start(self._signoff_check, False, False, 0)
 
         # Amend checkbox
-        self._amend_check = Gtk.CheckButton(label='Amend')
+        self._amend_check = Gtk.CheckButton(label='Amend Last Commit')
         self._amend_check.set_tooltip_text('Amend the last commit')
         self._amend_check.connect('toggled', self._on_amend_toggled)
         header.pack_start(self._amend_check, False, False, 0)
