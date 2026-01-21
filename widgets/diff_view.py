@@ -23,10 +23,15 @@ class DiffView(Gtk.Box):
         header.set_margin_top(6)
         header.set_margin_bottom(6)
 
-        title_label = Gtk.Label(label='Diff View')
-        title_label.set_xalign(0)
-        title_label.set_hexpand(True)
-        header.pack_start(title_label, True, True, 0)
+        # Status label (e.g., "Modified, not staged")
+        self._status_label = Gtk.Label(label='')
+        self._status_label.set_xalign(0)
+        header.pack_start(self._status_label, False, False, 0)
+
+        # Spacer
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        header.pack_start(spacer, True, True, 0)
 
         # Current file label
         self._file_label = Gtk.Label()
@@ -75,15 +80,17 @@ class DiffView(Gtk.Box):
                 self._buffer.set_style_scheme(scheme)
                 break
 
-    def set_diff(self, diff_text, file_path=''):
+    def set_diff(self, diff_text, file_path='', status=''):
         """Set the diff content to display.
 
         Args:
             diff_text: The diff text to display
             file_path: The file path to show in header
+            status: The status text (e.g., "Modified, not staged")
         """
         self._buffer.set_text(diff_text)
         self._file_label.set_text(file_path)
+        self._status_label.set_text(status)
 
         # Scroll to top
         self._source_view.scroll_to_iter(
@@ -95,6 +102,7 @@ class DiffView(Gtk.Box):
         """Clear the diff view."""
         self._buffer.set_text('')
         self._file_label.set_text('')
+        self._status_label.set_text('')
 
     def get_diff_text(self):
         """Get the current diff text."""

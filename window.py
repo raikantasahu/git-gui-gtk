@@ -8,7 +8,7 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gio, GLib
 
-from git_operations import GitOperations, FileChange
+from git_operations import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
 
 
@@ -378,7 +378,24 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _show_diff(self, file_change, staged):
         """Show diff for a file."""
         diff = self._git.get_diff(file_change.path, staged=staged)
-        self._diff_view.set_diff(diff, file_change.path)
+        status = self._get_file_status_text(file_change, staged)
+        self._diff_view.set_diff(diff, file_change.path, status)
+
+    def _get_file_status_text(self, file_change, staged):
+        """Get descriptive status text for a file."""
+        if staged:
+            return 'Staged for commit'
+        else:
+            status_map = {
+                FileStatus.MODIFIED: 'Modified, not staged',
+                FileStatus.ADDED: 'Added, not staged',
+                FileStatus.DELETED: 'Missing',
+                FileStatus.RENAMED: 'Renamed, not staged',
+                FileStatus.COPIED: 'Copied, not staged',
+                FileStatus.UNTRACKED: 'Untracked, not staged',
+                FileStatus.UNMERGED: 'Unmerged',
+            }
+            return status_map.get(file_change.status, 'Unknown')
 
     def _stage_file(self, file_change):
         """Stage a single file."""
