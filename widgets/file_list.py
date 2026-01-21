@@ -4,9 +4,22 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, GObject
+from gi.repository import Gtk, Gdk, GObject
 
 from git_operations import FileChange, FileStatus
+
+
+# CSS for header styling (matching git gui colors)
+CSS = b'''
+.unstaged-header {
+    background-color: #f5d0c8;
+    padding: 6px;
+}
+.staged-header {
+    background-color: #c8f5c8;
+    padding: 6px;
+}
+'''
 
 
 class FileListWidget(Gtk.Box):
@@ -26,12 +39,21 @@ class FileListWidget(Gtk.Box):
         self.staged = staged
         self._files = []
 
+        # Apply CSS
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
         # Header with title and action buttons
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        header.set_margin_start(6)
-        header.set_margin_end(6)
-        header.set_margin_top(6)
-        header.set_margin_bottom(6)
+        if staged:
+            header.get_style_context().add_class('staged-header')
+        else:
+            header.get_style_context().add_class('unstaged-header')
 
         title_label = Gtk.Label(label=title)
         title_label.set_xalign(0)
@@ -40,7 +62,6 @@ class FileListWidget(Gtk.Box):
 
         # Count label
         self._count_label = Gtk.Label(label='0')
-        self._count_label.get_style_context().add_class('dim-label')
         header.pack_start(self._count_label, False, False, 0)
 
         # Stage/Unstage all button

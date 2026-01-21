@@ -5,7 +5,16 @@ import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GtkSource', '4')
 
-from gi.repository import Gtk, GtkSource
+from gi.repository import Gtk, Gdk, GtkSource
+
+
+# CSS for header styling (matching git gui colors)
+CSS = b'''
+.diff-header {
+    background-color: #FFD700;
+    padding: 6px;
+}
+'''
 
 
 class DiffView(Gtk.Box):
@@ -16,12 +25,18 @@ class DiffView(Gtk.Box):
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
+        # Apply CSS
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        header.set_margin_start(6)
-        header.set_margin_end(6)
-        header.set_margin_top(6)
-        header.set_margin_bottom(6)
+        header.get_style_context().add_class('diff-header')
 
         # Status label (e.g., "Modified, not staged")
         self._status_label = Gtk.Label(label='')
@@ -35,7 +50,6 @@ class DiffView(Gtk.Box):
 
         # Current file label
         self._file_label = Gtk.Label()
-        self._file_label.get_style_context().add_class('dim-label')
         header.pack_start(self._file_label, False, False, 0)
 
         self.pack_start(header, False, False, 0)
