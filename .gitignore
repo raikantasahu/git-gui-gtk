@@ -21,3 +21,6 @@ build/
 
 # Local configuration
 *.local
+
+# Local Claude Code configuration
+.claude
