@@ -197,31 +197,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         menubar.append(edit_item)
 
-        # Commit menu
-        commit_menu = Gtk.Menu()
-        commit_item = Gtk.MenuItem(label='Commit')
-        commit_item.set_submenu(commit_menu)
-
-        stage_all_item = Gtk.MenuItem(label='Stage All')
-        stage_all_item.connect('activate', lambda w: self.stage_all())
-        commit_menu.append(stage_all_item)
-
-        unstage_all_item = Gtk.MenuItem(label='Unstage All')
-        unstage_all_item.connect('activate', lambda w: self.unstage_all())
-        commit_menu.append(unstage_all_item)
-
-        commit_menu.append(Gtk.SeparatorMenuItem())
-
-        do_commit_item = Gtk.MenuItem(label='Commit')
-        do_commit_item.connect('activate', lambda w: self.do_commit())
-        commit_menu.append(do_commit_item)
-
-        amend_item = Gtk.MenuItem(label='Amend Last Commit')
-        amend_item.connect('activate', lambda w: self.toggle_amend())
-        commit_menu.append(amend_item)
-
-        menubar.append(commit_item)
-
         # Remote menu
         remote_menu = Gtk.Menu()
         remote_item = Gtk.MenuItem(label='Remote')
