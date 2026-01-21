@@ -13,6 +13,7 @@ CSS = b'''
 .diff-header {
     background-color: #FFD700;
     padding: 6px;
+    font-weight: bold;
 }
 '''
 

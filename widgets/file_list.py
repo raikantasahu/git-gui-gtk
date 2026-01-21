@@ -14,10 +14,12 @@ CSS = b'''
 .unstaged-header {
     background-color: #f5d0c8;
     padding: 6px;
+    font-weight: bold;
 }
 .staged-header {
     background-color: #c8f5c8;
     padding: 6px;
+    font-weight: bold;
 }
 '''
 
