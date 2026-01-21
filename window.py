@@ -79,9 +79,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         main_paned.set_vexpand(True)
 
-        # Left side: file lists (full vertical space)
-        file_lists_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        file_lists_box.set_size_request(280, -1)
+        # Left side: file lists with resizable paned (full vertical space)
+        file_lists_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        file_lists_paned.set_size_request(280, -1)
 
         # Unstaged changes
         self._unstaged_list = FileListWidget(title='Unstaged Changes', staged=False)
@@ -89,19 +89,16 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._unstaged_list.connect('file-selected', self._on_unstaged_file_selected)
         self._unstaged_list.connect('file-activated', self._on_unstaged_file_activated)
         self._unstaged_list.connect('file-revert-requested', self._on_file_revert_requested)
-        file_lists_box.pack_start(self._unstaged_list, True, True, 0)
-
-        # Separator
-        file_lists_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        file_lists_paned.pack1(self._unstaged_list, resize=True, shrink=False)
 
         # Staged changes
         self._staged_list = FileListWidget(title='Staged Changes', staged=True)
         self._staged_list.set_vexpand(True)
         self._staged_list.connect('file-selected', self._on_staged_file_selected)
         self._staged_list.connect('file-activated', self._on_staged_file_activated)
-        file_lists_box.pack_start(self._staged_list, True, True, 0)
+        file_lists_paned.pack2(self._staged_list, resize=True, shrink=False)
 
-        main_paned.pack1(file_lists_box, resize=False, shrink=False)
+        main_paned.pack1(file_lists_paned, resize=False, shrink=False)
 
         # Right side: diff view and commit area stacked vertically
         right_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
