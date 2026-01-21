@@ -7,6 +7,8 @@ gi.require_version('GtkSource', '4')
 
 from gi.repository import Gtk, Gdk, GtkSource
 
+from config import UIConfig
+
 
 # CSS for header styling (matching git gui colors)
 CSS = b'''
@@ -37,7 +39,7 @@ class DiffView(Gtk.Box):
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        header.set_size_request(-1, 24)
+        header.set_size_request(-1, UIConfig.HEADER_HEIGHT)
         header.get_style_context().add_class('diff-header')
 
         # Status label (e.g., "Modified, not staged")

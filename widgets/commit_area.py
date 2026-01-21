@@ -6,6 +6,8 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GObject
 
+from config import UIConfig
+
 
 # CSS for header styling
 CSS = b'''
@@ -49,7 +51,7 @@ class CommitArea(Gtk.Box):
 
         # Header with title
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        header.set_size_request(-1, 24)
+        header.set_size_request(-1, UIConfig.HEADER_HEIGHT)
         header.get_style_context().add_class('commit-header')
 
         title_label = Gtk.Label(label='Commit Message')

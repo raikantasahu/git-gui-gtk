@@ -7,6 +7,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GObject
 
 from git_operations import FileChange, FileStatus
+from config import UIConfig
 
 
 # CSS for header styling (matching git gui colors)
@@ -52,7 +53,7 @@ class FileListWidget(Gtk.Box):
 
         # Header with title and action buttons
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        header.set_size_request(-1, 24)
+        header.set_size_request(-1, UIConfig.HEADER_HEIGHT)
         if staged:
             header.get_style_context().add_class('staged-header')
         else:
