@@ -360,12 +360,20 @@ class GitOperations:
             return []
         return [b.name for b in self.repo.branches]
 
-    def create_branch(self, name: str) -> tuple[bool, str]:
-        """Create a new branch."""
+    def create_branch(self, name: str, checkout: bool = False) -> tuple[bool, str]:
+        """Create a new branch.
+
+        Args:
+            name: Branch name
+            checkout: If True, checkout the branch after creation
+        """
         if not self.repo:
             return False, 'No repository open'
         try:
             self.repo.create_head(name)
+            if checkout:
+                self.repo.git.checkout(name)
+                return True, f'Branch {name} created and checked out'
             return True, f'Branch {name} created'
         except GitCommandError as e:
             return False, str(e)
@@ -388,6 +396,36 @@ class GitOperations:
             flag = '-D' if force else '-d'
             self.repo.git.branch(flag, name)
             return True, f'Branch {name} deleted'
+        except GitCommandError as e:
+            return False, str(e)
+
+    def rename_branch(self, old_name: str, new_name: str) -> tuple[bool, str]:
+        """Rename a branch.
+
+        Args:
+            old_name: Current branch name
+            new_name: New branch name
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.git.branch('-m', old_name, new_name)
+            return True, f'Branch {old_name} renamed to {new_name}'
+        except GitCommandError as e:
+            return False, str(e)
+
+    def reset_branch(self, target: str, mode: str = 'mixed') -> tuple[bool, str]:
+        """Reset current branch to a target commit.
+
+        Args:
+            target: Commit, branch, or tag to reset to
+            mode: Reset mode - 'soft', 'mixed', or 'hard'
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.git.reset(f'--{mode}', target)
+            return True, f'Reset to {target} ({mode})'
         except GitCommandError as e:
             return False, str(e)
 

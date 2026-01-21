@@ -197,6 +197,35 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         menubar.append(edit_item)
 
+        # Branch menu
+        branch_menu = Gtk.Menu()
+        branch_item = Gtk.MenuItem(label='Branch')
+        branch_item.set_submenu(branch_menu)
+
+        create_branch_item = Gtk.MenuItem(label='Create...')
+        create_branch_item.connect('activate', lambda w: self._show_create_branch_dialog())
+        branch_menu.append(create_branch_item)
+
+        checkout_branch_item = Gtk.MenuItem(label='Checkout...')
+        checkout_branch_item.connect('activate', lambda w: self._show_checkout_branch_dialog())
+        branch_menu.append(checkout_branch_item)
+
+        rename_branch_item = Gtk.MenuItem(label='Rename...')
+        rename_branch_item.connect('activate', lambda w: self._show_rename_branch_dialog())
+        branch_menu.append(rename_branch_item)
+
+        delete_branch_item = Gtk.MenuItem(label='Delete...')
+        delete_branch_item.connect('activate', lambda w: self._show_delete_branch_dialog())
+        branch_menu.append(delete_branch_item)
+
+        branch_menu.append(Gtk.SeparatorMenuItem())
+
+        reset_branch_item = Gtk.MenuItem(label='Reset...')
+        reset_branch_item.connect('activate', lambda w: self._show_reset_branch_dialog())
+        branch_menu.append(reset_branch_item)
+
+        menubar.append(branch_item)
+
         # Remote menu
         remote_menu = Gtk.Menu()
         remote_item = Gtk.MenuItem(label='Remote')
@@ -547,6 +576,299 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         dialog.format_secondary_text(message)
         dialog.run()
         dialog.destroy()
+
+    def _show_create_branch_dialog(self):
+        """Show dialog to create a new branch."""
+        dialog = Gtk.Dialog(
+            title='Create Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label = Gtk.Label(label='Branch name:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        entry = Gtk.Entry()
+        entry.set_activates_default(True)
+        content.pack_start(entry, False, False, 0)
+
+        checkout_check = Gtk.CheckButton(label='Checkout after creation')
+        checkout_check.set_active(True)
+        content.pack_start(checkout_check, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        branch_name = entry.get_text().strip()
+        checkout = checkout_check.get_active()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and branch_name:
+            success, message = self._git.create_branch(branch_name, checkout=checkout)
+            self._set_status(message)
+            if success:
+                self._update_branch_label()
+            else:
+                self._show_error('Create Branch Error', message)
+
+    def _show_checkout_branch_dialog(self):
+        """Show dialog to checkout a branch."""
+        branches = self._git.get_branches()
+        if not branches:
+            self._show_error('Checkout Branch', 'No branches found.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Checkout Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label = Gtk.Label(label='Select branch:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        current_branch = self._git.get_current_branch()
+        active_index = 0
+        for i, branch in enumerate(branches):
+            combo.append_text(branch)
+            if branch == current_branch:
+                active_index = i
+        combo.set_active(active_index)
+        content.pack_start(combo, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_branch = combo.get_active_text()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_branch:
+            success, message = self._git.checkout_branch(selected_branch)
+            self._set_status(message)
+            if success:
+                self._update_branch_label()
+                self.rescan()
+            else:
+                self._show_error('Checkout Branch Error', message)
+
+    def _show_rename_branch_dialog(self):
+        """Show dialog to rename a branch."""
+        branches = self._git.get_branches()
+        if not branches:
+            self._show_error('Rename Branch', 'No branches found.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Rename Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label1 = Gtk.Label(label='Select branch to rename:')
+        label1.set_xalign(0)
+        content.pack_start(label1, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        current_branch = self._git.get_current_branch()
+        active_index = 0
+        for i, branch in enumerate(branches):
+            combo.append_text(branch)
+            if branch == current_branch:
+                active_index = i
+        combo.set_active(active_index)
+        content.pack_start(combo, False, False, 0)
+
+        label2 = Gtk.Label(label='New name:')
+        label2.set_xalign(0)
+        content.pack_start(label2, False, False, 0)
+
+        entry = Gtk.Entry()
+        entry.set_activates_default(True)
+        content.pack_start(entry, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        old_name = combo.get_active_text()
+        new_name = entry.get_text().strip()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and old_name and new_name:
+            success, message = self._git.rename_branch(old_name, new_name)
+            self._set_status(message)
+            if success:
+                self._update_branch_label()
+            else:
+                self._show_error('Rename Branch Error', message)
+
+    def _show_delete_branch_dialog(self):
+        """Show dialog to delete a branch."""
+        branches = self._git.get_branches()
+        current_branch = self._git.get_current_branch()
+        # Filter out current branch
+        branches = [b for b in branches if b != current_branch]
+
+        if not branches:
+            self._show_error('Delete Branch', 'No branches available to delete (cannot delete current branch).')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Delete Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Delete', Gtk.ResponseType.OK
+        )
+
+        # Make delete button destructive
+        delete_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        delete_btn.get_style_context().add_class('destructive-action')
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label = Gtk.Label(label='Select branch to delete:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        for branch in branches:
+            combo.append_text(branch)
+        combo.set_active(0)
+        content.pack_start(combo, False, False, 0)
+
+        force_check = Gtk.CheckButton(label='Force delete (even if not merged)')
+        content.pack_start(force_check, False, False, 0)
+
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_branch = combo.get_active_text()
+        force = force_check.get_active()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_branch:
+            success, message = self._git.delete_branch(selected_branch, force=force)
+            self._set_status(message)
+            if not success:
+                self._show_error('Delete Branch Error', message)
+
+    def _show_reset_branch_dialog(self):
+        """Show dialog to reset current branch."""
+        dialog = Gtk.Dialog(
+            title='Reset Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Reset', Gtk.ResponseType.OK
+        )
+
+        # Make reset button destructive
+        reset_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        reset_btn.get_style_context().add_class('destructive-action')
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        current_branch = self._git.get_current_branch()
+        info_label = Gtk.Label(label=f'Reset branch: {current_branch}')
+        info_label.set_xalign(0)
+        content.pack_start(info_label, False, False, 0)
+
+        label = Gtk.Label(label='Reset to (commit/branch/tag):')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        entry = Gtk.Entry()
+        entry.set_text('HEAD')
+        entry.set_activates_default(True)
+        content.pack_start(entry, False, False, 0)
+
+        mode_label = Gtk.Label(label='Reset mode:')
+        mode_label.set_xalign(0)
+        content.pack_start(mode_label, False, False, 0)
+
+        soft_radio = Gtk.RadioButton.new_with_label(None, 'Soft (keep changes staged)')
+        content.pack_start(soft_radio, False, False, 0)
+
+        mixed_radio = Gtk.RadioButton.new_with_label_from_widget(soft_radio, 'Mixed (keep changes unstaged)')
+        mixed_radio.set_active(True)
+        content.pack_start(mixed_radio, False, False, 0)
+
+        hard_radio = Gtk.RadioButton.new_with_label_from_widget(soft_radio, 'Hard (discard all changes)')
+        content.pack_start(hard_radio, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        target = entry.get_text().strip()
+        if soft_radio.get_active():
+            mode = 'soft'
+        elif hard_radio.get_active():
+            mode = 'hard'
+        else:
+            mode = 'mixed'
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and target:
+            success, message = self._git.reset_branch(target, mode=mode)
+            self._set_status(message)
+            if success:
+                self.rescan()
+            else:
+                self._show_error('Reset Branch Error', message)
 
     def show_open_dialog(self):
         """Show dialog to open a repository."""
