@@ -176,27 +176,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         menubar.append(repo_item)
 
-        # Edit menu
-        edit_menu = Gtk.Menu()
-        edit_item = Gtk.MenuItem(label='Edit')
-        edit_item.set_submenu(edit_menu)
-
-        stage_item = Gtk.MenuItem(label='Stage Selected')
-        stage_item.connect('activate', lambda w: self._stage_selected())
-        edit_menu.append(stage_item)
-
-        unstage_item = Gtk.MenuItem(label='Unstage Selected')
-        unstage_item.connect('activate', lambda w: self._unstage_selected())
-        edit_menu.append(unstage_item)
-
-        edit_menu.append(Gtk.SeparatorMenuItem())
-
-        revert_item = Gtk.MenuItem(label='Revert Selected')
-        revert_item.connect('activate', lambda w: self._revert_selected())
-        edit_menu.append(revert_item)
-
-        menubar.append(edit_item)
-
         # Branch menu
         branch_menu = Gtk.Menu()
         branch_item = Gtk.MenuItem(label='Branch')
