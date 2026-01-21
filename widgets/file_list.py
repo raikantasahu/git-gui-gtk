@@ -17,6 +17,7 @@ class FileListWidget(Gtk.Box):
     __gsignals__ = {
         'file-selected': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         'file-activated': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
+        'file-revert-requested': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
     }
 
     def __init__(self, title, staged=False):
@@ -96,6 +97,11 @@ class FileListWidget(Gtk.Box):
         # Double-click handling
         self._tree_view.connect('row-activated', self._on_row_activated)
 
+        # Context menu for unstaged files
+        if not staged:
+            self._context_menu = self._create_context_menu()
+            self._tree_view.connect('button-press-event', self._on_button_press)
+
         scrolled.add(self._tree_view)
         self.pack_start(scrolled, True, True, 0)
 
@@ -136,6 +142,50 @@ class FileListWidget(Gtk.Box):
         idx = model.get_value(iter, 2)
         if idx < len(self._files):
             self.emit('file-activated', self._files[idx])
+
+    def _create_context_menu(self):
+        """Create context menu for unstaged files."""
+        menu = Gtk.Menu()
+
+        # Stage to Commit
+        stage_item = Gtk.MenuItem(label='Stage to Commit')
+        stage_item.connect('activate', self._on_context_stage)
+        menu.append(stage_item)
+
+        # Separator
+        menu.append(Gtk.SeparatorMenuItem())
+
+        # Revert Changes
+        revert_item = Gtk.MenuItem(label='Revert Changes')
+        revert_item.connect('activate', self._on_context_revert)
+        menu.append(revert_item)
+
+        menu.show_all()
+        return menu
+
+    def _on_button_press(self, tree_view, event):
+        """Handle button press for context menu."""
+        if event.button == 3:  # Right click
+            # Select the row under the cursor
+            path_info = tree_view.get_path_at_pos(int(event.x), int(event.y))
+            if path_info:
+                path, column, x, y = path_info
+                tree_view.get_selection().select_path(path)
+                self._context_menu.popup_at_pointer(event)
+                return True
+        return False
+
+    def _on_context_stage(self, menu_item):
+        """Handle Stage to Commit context menu action."""
+        file_change = self.get_selected_file()
+        if file_change:
+            self.emit('file-activated', file_change)
+
+    def _on_context_revert(self, menu_item):
+        """Handle Revert Changes context menu action."""
+        file_change = self.get_selected_file()
+        if file_change:
+            self.emit('file-revert-requested', file_change)
 
     def _get_status_label(self, status):
         """Get status label for a FileStatus."""

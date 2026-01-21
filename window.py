@@ -88,6 +88,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._unstaged_list.set_vexpand(True)
         self._unstaged_list.connect('file-selected', self._on_unstaged_file_selected)
         self._unstaged_list.connect('file-activated', self._on_unstaged_file_activated)
+        self._unstaged_list.connect('file-revert-requested', self._on_file_revert_requested)
         file_lists_box.pack_start(self._unstaged_list, True, True, 0)
 
         # Separator
@@ -342,6 +343,37 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self.unstage_all()
         else:
             self._unstage_file(file_change)
+
+    def _on_file_revert_requested(self, widget, file_change):
+        """Handle revert request from context menu."""
+        if not file_change:
+            return
+
+        # Show confirmation dialog
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.NONE,
+            text='Revert Changes?'
+        )
+        dialog.format_secondary_text(
+            'This will discard all changes to:\n{}\n\nThis action cannot be undone.'.format(file_change.path)
+        )
+        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
+        dialog.add_button('Revert', Gtk.ResponseType.OK)
+
+        # Make the Revert button look destructive
+        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        revert_btn.get_style_context().add_class('destructive-action')
+
+        response = dialog.run()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK:
+            success, message = self._git.revert_file(file_change.path)
+            self._set_status(message)
+            self.rescan()
 
     def _show_diff(self, file_change, staged):
         """Show diff for a file."""
