@@ -286,6 +286,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._staged_list.set_files([])
         self._diff_view.clear()
         self._branch_label.set_text('')
+        self._commit_area.set_commit_sensitive(False)
 
     def _update_branch_label(self):
         """Update the branch indicator."""
@@ -303,6 +304,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         self._update_branch_label()
         self._set_status('{} unstaged, {} staged changes'.format(len(unstaged), len(staged)))
+
+        # Enable commit button only if there are staged files
+        self._commit_area.set_commit_sensitive(len(staged) > 0)
 
         # Clear diff if selected file is no longer in list
         if self._current_file:

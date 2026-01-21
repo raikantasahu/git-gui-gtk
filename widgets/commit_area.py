@@ -166,3 +166,7 @@ class CommitArea(Gtk.Box):
     def focus_message(self):
         """Focus the commit message text view."""
         self._text_view.grab_focus()
+
+    def set_commit_sensitive(self, sensitive):
+        """Enable or disable the commit button."""
+        self._commit_btn.set_sensitive(sensitive)
