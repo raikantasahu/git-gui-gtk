@@ -174,6 +174,32 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         repo_menu.append(Gtk.SeparatorMenuItem())
 
+        # Visualize section
+        self._visualize_branch_item = Gtk.MenuItem(label='Visualize main\'s History')
+        self._visualize_branch_item.connect('activate', lambda w: self._visualize_branch_history())
+        repo_menu.append(self._visualize_branch_item)
+
+        visualize_all_item = Gtk.MenuItem(label='Visualize All Branches History')
+        visualize_all_item.connect('activate', lambda w: self._visualize_all_history())
+        repo_menu.append(visualize_all_item)
+
+        repo_menu.append(Gtk.SeparatorMenuItem())
+
+        # Database section
+        db_stats_item = Gtk.MenuItem(label='Database Statistics')
+        db_stats_item.connect('activate', lambda w: self._show_database_statistics())
+        repo_menu.append(db_stats_item)
+
+        db_compress_item = Gtk.MenuItem(label='Compress Database')
+        db_compress_item.connect('activate', lambda w: self._compress_database())
+        repo_menu.append(db_compress_item)
+
+        db_verify_item = Gtk.MenuItem(label='Verify Database')
+        db_verify_item.connect('activate', lambda w: self._verify_database())
+        repo_menu.append(db_verify_item)
+
+        repo_menu.append(Gtk.SeparatorMenuItem())
+
         quit_item = Gtk.MenuItem(label='Quit')
         quit_item.connect('activate', lambda w: self.get_application().quit())
         repo_menu.append(quit_item)
@@ -294,10 +320,174 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         except Exception as e:
             self._show_error('Explore Repository', f'Failed to open file browser: {e}')
 
+    def _visualize_branch_history(self):
+        """Open gitk to visualize current branch history."""
+        if not self._git.repo_path:
+            self._set_status('No repository open')
+            return
+        try:
+            import subprocess
+            branch = self._git.get_current_branch()
+            subprocess.Popen(['gitk', branch], cwd=self._git.repo_path)
+        except FileNotFoundError:
+            self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
+        except Exception as e:
+            self._show_error('Visualize History', f'Failed to open gitk: {e}')
+
+    def _visualize_all_history(self):
+        """Open gitk to visualize all branches history."""
+        if not self._git.repo_path:
+            self._set_status('No repository open')
+            return
+        try:
+            import subprocess
+            subprocess.Popen(['gitk', '--all'], cwd=self._git.repo_path)
+        except FileNotFoundError:
+            self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
+        except Exception as e:
+            self._show_error('Visualize History', f'Failed to open gitk: {e}')
+
+    def _show_database_statistics(self):
+        """Show git database statistics."""
+        if not self._git.repo_path:
+            self._set_status('No repository open')
+            return
+        success, output = self._git.get_database_statistics()
+        if success:
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.NONE,
+                text='Database Statistics'
+            )
+            dialog.format_secondary_text(output)
+            # Add Close button with padding, not full width
+            button_box = dialog.get_action_area()
+            button_box.set_layout(Gtk.ButtonBoxStyle.END)
+            button_box.set_margin_end(12)
+            button_box.set_margin_bottom(12)
+            dialog.add_button('Close', Gtk.ResponseType.CLOSE)
+            dialog.run()
+            dialog.destroy()
+        else:
+            self._show_error('Database Statistics', output)
+
+    def _compress_database(self):
+        """Compress git database (git gc)."""
+        if not self._git.repo_path:
+            self._set_status('No repository open')
+            return
+
+        # Create progress dialog
+        self._compress_dialog = Gtk.Dialog(
+            title='Compress Database',
+            transient_for=self,
+            modal=True
+        )
+        self._compress_dialog.set_default_size(350, 120)
+        self._compress_dialog.set_deletable(False)
+
+        content = self._compress_dialog.get_content_area()
+        content.set_margin_start(20)
+        content.set_margin_end(20)
+        content.set_margin_top(20)
+        content.set_margin_bottom(12)
+        content.set_spacing(12)
+
+        self._compress_label = Gtk.Label(label='Compressing database...')
+        self._compress_label.set_xalign(0)
+        content.pack_start(self._compress_label, False, False, 0)
+
+        self._compress_spinner = Gtk.Spinner()
+        self._compress_spinner.start()
+        content.pack_start(self._compress_spinner, False, False, 0)
+
+        self._compress_dialog.show_all()
+
+        self._set_status('Compressing database...')
+
+        def do_compress():
+            success, message = self._git.compress_database()
+            GLib.idle_add(self._on_compress_complete, success, message)
+
+        import threading
+        thread = threading.Thread(target=do_compress)
+        thread.daemon = True
+        thread.start()
+
+    def _on_compress_complete(self, success, message):
+        """Handle compress completion."""
+        self._set_status(message)
+
+        # Update dialog
+        self._compress_spinner.stop()
+        self._compress_spinner.hide()
+
+        if success:
+            self._compress_label.set_text('Database compressed successfully.')
+        else:
+            self._compress_label.set_text(f'Compression failed: {message}')
+
+        # Add Close button
+        button_box = self._compress_dialog.get_action_area()
+        button_box.set_layout(Gtk.ButtonBoxStyle.END)
+        button_box.set_margin_end(12)
+        button_box.set_margin_bottom(12)
+        self._compress_dialog.add_button('Close', Gtk.ResponseType.CLOSE)
+        self._compress_dialog.set_deletable(True)
+        button_box.show_all()
+
+        self._compress_dialog.run()
+        self._compress_dialog.destroy()
+
+    def _verify_database(self):
+        """Verify git database (git fsck)."""
+        if not self._git.repo_path:
+            self._set_status('No repository open')
+            return
+        self._set_status('Verifying database...')
+
+        def do_verify():
+            success, message = self._git.verify_database()
+            GLib.idle_add(self._on_verify_complete, success, message)
+
+        import threading
+        thread = threading.Thread(target=do_verify)
+        thread.daemon = True
+        thread.start()
+
+    def _on_verify_complete(self, success, message):
+        """Handle verify completion."""
+        if success:
+            self._set_status('Database verification completed')
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.NONE,
+                text='Verify Database'
+            )
+            dialog.format_secondary_text(message if message else 'No errors found.')
+            # Add Close button with padding, not full width
+            button_box = dialog.get_action_area()
+            button_box.set_layout(Gtk.ButtonBoxStyle.END)
+            button_box.set_margin_end(12)
+            button_box.set_margin_bottom(12)
+            dialog.add_button('Close', Gtk.ResponseType.CLOSE)
+            dialog.run()
+            dialog.destroy()
+        else:
+            self._set_status('Database verification found issues')
+            self._show_error('Verify Database', message)
+
     def _update_branch_label(self):
-        """Update the branch indicator."""
+        """Update the branch indicator and related menu items."""
         branch = self._git.get_current_branch()
         self._branch_label.set_text('  ' + branch if branch else '')
+        # Update visualize menu item
+        if branch:
+            self._visualize_branch_item.set_label(f"Visualize {branch}'s History")
 
     def rescan(self):
         """Rescan the repository for changes."""

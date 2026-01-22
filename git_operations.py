@@ -511,3 +511,45 @@ class GitOperations:
         except Exception:
             pass
         return commits
+
+    def get_database_statistics(self) -> tuple[bool, str]:
+        """Get git database statistics.
+
+        Returns:
+            Tuple of (success, output/error)
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            output = self.repo.git.count_objects('-v')
+            return True, output
+        except GitCommandError as e:
+            return False, str(e)
+
+    def compress_database(self) -> tuple[bool, str]:
+        """Compress git database (git gc).
+
+        Returns:
+            Tuple of (success, message/error)
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.git.gc()
+            return True, 'Database compressed successfully'
+        except GitCommandError as e:
+            return False, str(e)
+
+    def verify_database(self) -> tuple[bool, str]:
+        """Verify git database (git fsck).
+
+        Returns:
+            Tuple of (success, output/error)
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            output = self.repo.git.fsck()
+            return True, output
+        except GitCommandError as e:
+            return False, str(e)
