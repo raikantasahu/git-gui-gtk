@@ -6,12 +6,12 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, GLib
 
-from config import UIConfig
 from git_operations import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
 from actions import get_action_shortcut
+import dialogs
 
 
 def _create_menu_item(label, action_name=None):
@@ -328,216 +328,11 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_ssh_key(self):
         """Show the user's SSH public key."""
-        ssh_key = None
-        ssh_key_path = None
-
-        # Check common SSH key locations
-        ssh_dir = os.path.expanduser('~/.ssh')
-        key_files = ['id_ed25519.pub', 'id_rsa.pub', 'id_ecdsa.pub', 'id_dsa.pub']
-
-        for key_file in key_files:
-            path = os.path.join(ssh_dir, key_file)
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r') as f:
-                        ssh_key = f.read().strip()
-                    ssh_key_path = path
-                    break
-                except Exception:
-                    continue
-
-        dialog = Gtk.Dialog(
-            title='Your OpenSSH Public Key',
-            transient_for=self,
-            modal=True
-        )
-        dialog.set_default_size(600, 200)
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        if ssh_key:
-            path_label = Gtk.Label(label=f'Public key from: {ssh_key_path}')
-            path_label.set_xalign(0)
-            content.pack_start(path_label, False, False, 0)
-
-            scrolled = Gtk.ScrolledWindow()
-            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-            scrolled.set_vexpand(True)
-
-            text_view = Gtk.TextView()
-            text_view.set_editable(False)
-            text_view.set_wrap_mode(Gtk.WrapMode.CHAR)
-            text_view.set_monospace(True)
-            text_view.get_buffer().set_text(ssh_key)
-            scrolled.add(text_view)
-            content.pack_start(scrolled, True, True, 0)
-        else:
-            no_key_label = Gtk.Label(label='No SSH public key found.')
-            no_key_label.set_xalign(0)
-            content.pack_start(no_key_label, False, False, 0)
-
-        button_box = dialog.get_action_area()
-        button_box.set_layout(Gtk.ButtonBoxStyle.END)
-        button_box.set_margin_end(12)
-        button_box.set_margin_bottom(12)
-
-        if ssh_key:
-            dialog.add_button('Copy to Clipboard', Gtk.ResponseType.APPLY)
-        else:
-            dialog.add_button('Generate Key', Gtk.ResponseType.YES)
-        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-
-        dialog.show_all()
-
-        # Handle responses in a loop so Copy doesn't close the dialog
-        while True:
-            response = dialog.run()
-            if response == Gtk.ResponseType.APPLY and ssh_key:
-                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-                clipboard.set_text(ssh_key, -1)
-                clipboard.store()
-                self._set_status('SSH key copied to clipboard')
-            elif response == Gtk.ResponseType.YES:
-                dialog.destroy()
-                self._generate_ssh_key()
-                return
-            else:
-                break
-
-        dialog.destroy()
-
-    def _generate_ssh_key(self):
-        """Show dialog to generate a new SSH key."""
-        dialog = Gtk.Dialog(
-            title='Generate SSH Key',
-            transient_for=self,
-            modal=True
-        )
-        dialog.set_default_size(450, 250)
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(8)
-
-        # Key type
-        type_label = Gtk.Label(label='Key type:')
-        type_label.set_xalign(0)
-        content.pack_start(type_label, False, False, 0)
-
-        type_combo = Gtk.ComboBoxText()
-        type_combo.append('ed25519', 'Ed25519 (recommended)')
-        type_combo.append('rsa', 'RSA (4096 bits)')
-        type_combo.append('ecdsa', 'ECDSA')
-        type_combo.set_active(0)
-        content.pack_start(type_combo, False, False, 0)
-
-        # Comment/Email
-        comment_label = Gtk.Label(label='Comment (usually your email):')
-        comment_label.set_xalign(0)
-        content.pack_start(comment_label, False, False, 0)
-
-        comment_entry = Gtk.Entry()
-        comment_entry.set_placeholder_text('your_email@example.com')
-        content.pack_start(comment_entry, False, False, 0)
-
-        # Passphrase
-        pass_label = Gtk.Label(label='Passphrase (optional, leave empty for no passphrase):')
-        pass_label.set_xalign(0)
-        content.pack_start(pass_label, False, False, 0)
-
-        pass_entry = Gtk.Entry()
-        pass_entry.set_visibility(False)
-        pass_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        content.pack_start(pass_entry, False, False, 0)
-
-        # Confirm passphrase
-        confirm_label = Gtk.Label(label='Confirm passphrase:')
-        confirm_label.set_xalign(0)
-        content.pack_start(confirm_label, False, False, 0)
-
-        confirm_entry = Gtk.Entry()
-        confirm_entry.set_visibility(False)
-        confirm_entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
-        content.pack_start(confirm_entry, False, False, 0)
-
-        button_box = dialog.get_action_area()
-        button_box.set_layout(Gtk.ButtonBoxStyle.END)
-        button_box.set_margin_end(12)
-        button_box.set_margin_bottom(12)
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
-        dialog.add_button('Generate', Gtk.ResponseType.OK)
-
-        dialog.show_all()
-
-        while True:
-            response = dialog.run()
-            if response == Gtk.ResponseType.OK:
-                key_type = type_combo.get_active_id()
-                comment = comment_entry.get_text().strip()
-                passphrase = pass_entry.get_text()
-                confirm = confirm_entry.get_text()
-
-                if passphrase != confirm:
-                    self._show_error('Generate SSH Key', 'Passphrases do not match.')
-                    continue
-
-                dialog.destroy()
-
-                # Generate the key
-                ssh_dir = os.path.expanduser('~/.ssh')
-                if not os.path.exists(ssh_dir):
-                    os.makedirs(ssh_dir, mode=0o700)
-
-                key_file = os.path.join(ssh_dir, f'id_{key_type}')
-
-                if os.path.exists(key_file):
-                    self._show_error('Generate SSH Key', f'Key file already exists: {key_file}')
-                    return
-
-                try:
-                    import subprocess
-                    cmd = ['ssh-keygen', '-t', key_type, '-f', key_file, '-N', passphrase]
-                    if key_type == 'rsa':
-                        cmd.extend(['-b', '4096'])
-                    if comment:
-                        cmd.extend(['-C', comment])
-
-                    result = subprocess.run(cmd, capture_output=True, text=True)
-
-                    if result.returncode == 0:
-                        self._set_status('SSH key generated successfully')
-                        # Show the new key
-                        self._show_ssh_key()
-                    else:
-                        self._show_error('Generate SSH Key', f'Failed to generate key:\n{result.stderr}')
-                except Exception as e:
-                    self._show_error('Generate SSH Key', f'Failed to generate key: {e}')
-                return
-            else:
-                break
-
-        dialog.destroy()
+        dialogs.show_ssh_key_dialog(self, on_status=self._set_status)
 
     def _show_about(self):
         """Show the about dialog."""
-        about = Gtk.AboutDialog(
-            transient_for=self,
-            modal=True,
-            program_name='Git GUI GTK',
-            version='1.0.0',
-            comments='A GTK3 replacement for git-gui',
-            license_type=Gtk.License.GPL_3_0
-        )
-        about.run()
-        about.destroy()
+        dialogs.show_about_dialog(self)
 
     def open_repository(self, path):
         """Open a git repository."""
@@ -601,94 +396,18 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         if not self._git.repo_path:
             self._set_status('No repository open')
             return
-        success, output = self._git.get_database_statistics()
-        if success:
-            dialog = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.NONE,
-                text='Database Statistics'
-            )
-            dialog.format_secondary_text(output)
-            # Add Close button with padding, not full width
-            button_box = dialog.get_action_area()
-            button_box.set_layout(Gtk.ButtonBoxStyle.END)
-            button_box.set_margin_end(12)
-            button_box.set_margin_bottom(12)
-            dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-            dialog.run()
-            dialog.destroy()
-        else:
-            self._show_error('Database Statistics', output)
+        dialogs.show_database_statistics_dialog(self, self._git)
 
     def _compress_database(self):
         """Compress git database (git gc)."""
         if not self._git.repo_path:
             self._set_status('No repository open')
             return
-
-        # Create progress dialog
-        self._compress_dialog = Gtk.Dialog(
-            title='Compress Database',
-            transient_for=self,
-            modal=True
-        )
-        self._compress_dialog.set_default_size(350, 120)
-        self._compress_dialog.set_deletable(False)
-
-        content = self._compress_dialog.get_content_area()
-        content.set_margin_start(20)
-        content.set_margin_end(20)
-        content.set_margin_top(20)
-        content.set_margin_bottom(12)
-        content.set_spacing(12)
-
-        self._compress_label = Gtk.Label(label='Compressing database...')
-        self._compress_label.set_xalign(0)
-        content.pack_start(self._compress_label, False, False, 0)
-
-        self._compress_spinner = Gtk.Spinner()
-        self._compress_spinner.start()
-        content.pack_start(self._compress_spinner, False, False, 0)
-
-        self._compress_dialog.show_all()
-
         self._set_status('Compressing database...')
-
-        def do_compress():
-            success, message = self._git.compress_database()
-            GLib.idle_add(self._on_compress_complete, success, message)
-
-        import threading
-        thread = threading.Thread(target=do_compress)
-        thread.daemon = True
-        thread.start()
-
-    def _on_compress_complete(self, success, message):
-        """Handle compress completion."""
-        self._set_status(message)
-
-        # Update dialog
-        self._compress_spinner.stop()
-        self._compress_spinner.hide()
-
-        if success:
-            self._compress_label.set_text('Database compressed successfully.')
-        else:
-            self._compress_label.set_text(f'Compression failed: {message}')
-
-        # Add Close button
-        button_box = self._compress_dialog.get_action_area()
-        button_box.set_layout(Gtk.ButtonBoxStyle.END)
-        button_box.set_margin_end(12)
-        button_box.set_margin_bottom(12)
-        self._compress_dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-        self._compress_dialog.set_deletable(True)
-        button_box.show_all()
-
-        self._compress_dialog.run()
-        self._compress_dialog.destroy()
+        dialogs.show_compress_database_dialog(
+            self, self._git,
+            on_complete=lambda success, msg: self._set_status(msg)
+        )
 
     def _verify_database(self):
         """Verify git database (git fsck)."""
@@ -696,39 +415,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status('No repository open')
             return
         self._set_status('Verifying database...')
-
-        def do_verify():
-            success, message = self._git.verify_database()
-            GLib.idle_add(self._on_verify_complete, success, message)
-
-        import threading
-        thread = threading.Thread(target=do_verify)
-        thread.daemon = True
-        thread.start()
-
-    def _on_verify_complete(self, success, message):
-        """Handle verify completion."""
-        if success:
-            self._set_status('Database verification completed')
-            dialog = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.NONE,
-                text='Verify Database'
+        dialogs.show_verify_database_dialog(
+            self, self._git,
+            on_complete=lambda success, msg: self._set_status(
+                'Database verification completed' if success else 'Database verification found issues'
             )
-            dialog.format_secondary_text(message if message else 'No errors found.')
-            # Add Close button with padding, not full width
-            button_box = dialog.get_action_area()
-            button_box.set_layout(Gtk.ButtonBoxStyle.END)
-            button_box.set_margin_end(12)
-            button_box.set_margin_bottom(12)
-            dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-            dialog.run()
-            dialog.destroy()
-        else:
-            self._set_status('Database verification found issues')
-            self._show_error('Verify Database', message)
+        )
 
     def _update_branch_label(self):
         """Update the branch indicator and related menu items."""
@@ -968,103 +660,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             last_msg = self._git.get_last_commit_message()
             self._commit_area.set_message(last_msg)
 
-    def _get_default_remote_index(self, remotes):
-        """Get the index of the default remote (tracking remote or first)."""
-        tracking_remote = self._git.get_tracking_remote()
-        if tracking_remote and tracking_remote in remotes:
-            return remotes.index(tracking_remote)
-        return 0
-
     def show_push_dialog(self):
         """Show dialog to push to a remote."""
-        remotes = self._git.get_remotes()
-        if not remotes:
-            self._show_error('Push', 'No remotes configured.')
-            return
-
-        current_branch = self._git.get_current_branch()
-
-        dialog = Gtk.Dialog(
-            title='Push',
-            transient_for=self,
-            modal=True
-        )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Push', Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        # Remote selection
-        remote_label = Gtk.Label(label='Remote:')
-        remote_label.set_xalign(0)
-        content.pack_start(remote_label, False, False, 0)
-
-        remote_combo = Gtk.ComboBoxText()
-        for remote in remotes:
-            remote_combo.append_text(remote)
-        remote_combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(remote_combo, False, False, 0)
-
-        # Branch selection
-        branch_label = Gtk.Label(label='Remote branch:')
-        branch_label.set_xalign(0)
-        content.pack_start(branch_label, False, False, 0)
-
-        branch_combo = Gtk.ComboBoxText()
-        content.pack_start(branch_combo, False, False, 0)
-
-        def update_branches(combo):
-            """Update branch dropdown when remote changes."""
-            branch_combo.remove_all()
-            selected_remote = combo.get_active_text()
-            if selected_remote:
-                branches = self._git.get_remote_branches(selected_remote)
-                default_index = 0
-                for i, branch in enumerate(branches):
-                    branch_combo.append_text(branch)
-                    if branch == current_branch:
-                        default_index = i
-                if branches:
-                    branch_combo.set_active(default_index)
-
-        remote_combo.connect('changed', update_branches)
-        update_branches(remote_combo)
-
-        # Push options
-        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
-
-        options_label = Gtk.Label(label='Push options:')
-        options_label.set_xalign(0)
-        content.pack_start(options_label, False, False, 0)
-
-        force_check = Gtk.CheckButton(label='Force push (--force)')
-        force_check.set_tooltip_text('Overwrites remote branch. Use with caution!')
-        content.pack_start(force_check, False, False, 0)
-
-        tags_check = Gtk.CheckButton(label='Push tags (--tags)')
-        tags_check.set_tooltip_text('Push all local tags to the remote')
-        content.pack_start(tags_check, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_remote = remote_combo.get_active_text()
-        selected_branch = branch_combo.get_active_text()
-        force = force_check.get_active()
-        tags = tags_check.get_active()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_remote:
-            self._do_push(selected_remote, selected_branch, force, tags)
+        result = dialogs.show_push_dialog(self, self._git)
+        if result:
+            remote, branch, force, tags = result
+            self._do_push(remote, branch, force, tags)
 
     def _do_push(self, remote_name, branch_name=None, force=False, tags=False):
         """Perform push to the specified remote."""
@@ -1088,96 +689,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_pull_dialog(self):
         """Show dialog to pull from a remote."""
-        remotes = self._git.get_remotes()
-        if not remotes:
-            self._show_error('Pull', 'No remotes configured.')
-            return
-
-        current_branch = self._git.get_current_branch()
-
-        dialog = Gtk.Dialog(
-            title='Pull',
-            transient_for=self,
-            modal=True
-        )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Pull', Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        # Remote selection
-        remote_label = Gtk.Label(label='Remote:')
-        remote_label.set_xalign(0)
-        content.pack_start(remote_label, False, False, 0)
-
-        remote_combo = Gtk.ComboBoxText()
-        for remote in remotes:
-            remote_combo.append_text(remote)
-        remote_combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(remote_combo, False, False, 0)
-
-        # Branch selection
-        branch_label = Gtk.Label(label='Remote branch:')
-        branch_label.set_xalign(0)
-        content.pack_start(branch_label, False, False, 0)
-
-        branch_combo = Gtk.ComboBoxText()
-        content.pack_start(branch_combo, False, False, 0)
-
-        def update_branches(combo):
-            """Update branch dropdown when remote changes."""
-            branch_combo.remove_all()
-            selected_remote = combo.get_active_text()
-            if selected_remote:
-                branches = self._git.get_remote_branches(selected_remote)
-                default_index = 0
-                for i, branch in enumerate(branches):
-                    branch_combo.append_text(branch)
-                    if branch == current_branch:
-                        default_index = i
-                if branches:
-                    branch_combo.set_active(default_index)
-
-        remote_combo.connect('changed', update_branches)
-        update_branches(remote_combo)
-
-        # Pull options
-        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
-
-        options_label = Gtk.Label(label='Pull options:')
-        options_label.set_xalign(0)
-        content.pack_start(options_label, False, False, 0)
-
-        default_radio = Gtk.RadioButton.new_with_label(None, 'Default (merge)')
-        default_radio.set_active(True)
-        content.pack_start(default_radio, False, False, 0)
-
-        ff_only_radio = Gtk.RadioButton.new_with_label_from_widget(default_radio, 'Fast-forward only (--ff-only)')
-        content.pack_start(ff_only_radio, False, False, 0)
-
-        rebase_radio = Gtk.RadioButton.new_with_label_from_widget(default_radio, 'Rebase (--rebase)')
-        content.pack_start(rebase_radio, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_remote = remote_combo.get_active_text()
-        selected_branch = branch_combo.get_active_text()
-        ff_only = ff_only_radio.get_active()
-        rebase = rebase_radio.get_active()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_remote:
-            self._do_pull(selected_remote, selected_branch, ff_only, rebase)
+        result = dialogs.show_pull_dialog(self, self._git)
+        if result:
+            remote, branch, ff_only, rebase = result
+            self._do_pull(remote, branch, ff_only, rebase)
 
     def _do_pull(self, remote_name, branch_name=None, ff_only=False, rebase=False):
         """Perform pull from the specified remote."""
@@ -1203,48 +718,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_fetch_dialog(self):
         """Show dialog to fetch from a remote."""
-        remotes = self._git.get_remotes()
-        if not remotes:
-            self._show_error('Fetch', 'No remotes configured.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Fetch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Fetch', Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        label = Gtk.Label(label='Fetch from remote:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        combo = Gtk.ComboBoxText()
-        for remote in remotes:
-            combo.append_text(remote)
-        combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(combo, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_remote = combo.get_active_text()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_remote:
-            self._do_fetch(selected_remote)
+        result = dialogs.show_fetch_dialog(self, self._git)
+        if result:
+            self._do_fetch(result)
 
     def _do_fetch(self, remote_name):
         """Perform fetch from the specified remote."""
@@ -1307,44 +783,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_create_branch_dialog(self):
         """Show dialog to create a new branch."""
-        dialog = Gtk.Dialog(
-            title='Create Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OK, Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        label = Gtk.Label(label='Branch name:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        entry = Gtk.Entry()
-        entry.set_activates_default(True)
-        content.pack_start(entry, False, False, 0)
-
-        checkout_check = Gtk.CheckButton(label='Checkout after creation')
-        checkout_check.set_active(True)
-        content.pack_start(checkout_check, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        branch_name = entry.get_text().strip()
-        checkout = checkout_check.get_active()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and branch_name:
+        result = dialogs.show_create_branch_dialog(self, self._git)
+        if result:
+            branch_name, checkout = result
             success, message = self._git.create_branch(branch_name, checkout=checkout)
             self._set_status(message)
             if success:
@@ -1354,51 +795,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_checkout_branch_dialog(self):
         """Show dialog to checkout a branch."""
-        branches = self._git.get_branches()
-        if not branches:
-            self._show_error('Checkout Branch', 'No branches found.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Checkout Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OK, Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        label = Gtk.Label(label='Select branch:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        combo = Gtk.ComboBoxText()
-        current_branch = self._git.get_current_branch()
-        active_index = 0
-        for i, branch in enumerate(branches):
-            combo.append_text(branch)
-            if branch == current_branch:
-                active_index = i
-        combo.set_active(active_index)
-        content.pack_start(combo, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_branch = combo.get_active_text()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_branch:
-            success, message = self._git.checkout_branch(selected_branch)
+        result = dialogs.show_checkout_branch_dialog(self, self._git)
+        if result:
+            success, message = self._git.checkout_branch(result)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -1408,59 +807,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_rename_branch_dialog(self):
         """Show dialog to rename a branch."""
-        branches = self._git.get_branches()
-        if not branches:
-            self._show_error('Rename Branch', 'No branches found.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Rename Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OK, Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        label1 = Gtk.Label(label='Select branch to rename:')
-        label1.set_xalign(0)
-        content.pack_start(label1, False, False, 0)
-
-        combo = Gtk.ComboBoxText()
-        current_branch = self._git.get_current_branch()
-        active_index = 0
-        for i, branch in enumerate(branches):
-            combo.append_text(branch)
-            if branch == current_branch:
-                active_index = i
-        combo.set_active(active_index)
-        content.pack_start(combo, False, False, 0)
-
-        label2 = Gtk.Label(label='New name:')
-        label2.set_xalign(0)
-        content.pack_start(label2, False, False, 0)
-
-        entry = Gtk.Entry()
-        entry.set_activates_default(True)
-        content.pack_start(entry, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        old_name = combo.get_active_text()
-        new_name = entry.get_text().strip()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and old_name and new_name:
+        result = dialogs.show_rename_branch_dialog(self, self._git)
+        if result:
+            old_name, new_name = result
             success, message = self._git.rename_branch(old_name, new_name)
             self._set_status(message)
             if success:
@@ -1470,176 +819,23 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_delete_branch_dialog(self):
         """Show dialog to delete a branch."""
-        branches = self._git.get_branches()
-        current_branch = self._git.get_current_branch()
-        # Filter out current branch
-        branches = [b for b in branches if b != current_branch]
-
-        if not branches:
-            self._show_error('Delete Branch', 'No branches available to delete (cannot delete current branch).')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Delete Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Delete', Gtk.ResponseType.OK
-        )
-
-        # Make delete button destructive
-        delete_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        delete_btn.get_style_context().add_class('destructive-action')
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        label = Gtk.Label(label='Select branch to delete:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        combo = Gtk.ComboBoxText()
-        for branch in branches:
-            combo.append_text(branch)
-        combo.set_active(0)
-        content.pack_start(combo, False, False, 0)
-
-        force_check = Gtk.CheckButton(label='Force delete (even if not merged)')
-        content.pack_start(force_check, False, False, 0)
-
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_branch = combo.get_active_text()
-        force = force_check.get_active()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_branch:
-            success, message = self._git.delete_branch(selected_branch, force=force)
+        result = dialogs.show_delete_branch_dialog(self, self._git)
+        if result:
+            branch_name, force = result
+            success, message = self._git.delete_branch(branch_name, force=force)
             self._set_status(message)
             if not success:
                 self._show_error('Delete Branch Error', message)
 
     def _show_list_remotes_dialog(self):
         """Show dialog listing all remotes."""
-        remotes = self._git.get_remotes_with_urls()
-
-        dialog = Gtk.Dialog(
-            title='Remotes',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, 200)
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        if not remotes:
-            label = Gtk.Label(label='No remotes configured.')
-            content.pack_start(label, True, True, 0)
-        else:
-            scrolled = Gtk.ScrolledWindow()
-            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-            scrolled.set_vexpand(True)
-
-            # Create list store: name, url
-            store = Gtk.ListStore(str, str)
-            for name, url in remotes.items():
-                store.append([name, url])
-
-            tree_view = Gtk.TreeView(model=store)
-            tree_view.set_headers_visible(True)
-
-            name_renderer = Gtk.CellRendererText()
-            name_column = Gtk.TreeViewColumn('Name', name_renderer, text=0)
-            name_column.set_min_width(100)
-            tree_view.append_column(name_column)
-
-            url_renderer = Gtk.CellRendererText()
-            url_column = Gtk.TreeViewColumn('URL', url_renderer, text=1)
-            url_column.set_expand(True)
-            tree_view.append_column(url_column)
-
-            scrolled.add(tree_view)
-            content.pack_start(scrolled, True, True, 0)
-
-        dialog.show_all()
-        dialog.run()
-        dialog.destroy()
+        dialogs.show_list_remotes_dialog(self, self._git)
 
     def show_add_remote_dialog(self):
         """Show dialog to add a new remote."""
-        dialog = Gtk.Dialog(
-            title='Add Remote',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Add', Gtk.ResponseType.OK
-        )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
-
-        add_button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        add_button.set_sensitive(False)
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        name_label = Gtk.Label(label='Remote name:')
-        name_label.set_xalign(0)
-        content.pack_start(name_label, False, False, 0)
-
-        name_entry = Gtk.Entry()
-        name_entry.set_text('origin')
-        content.pack_start(name_entry, False, False, 0)
-
-        url_label = Gtk.Label(label='Remote URL:')
-        url_label.set_xalign(0)
-        content.pack_start(url_label, False, False, 0)
-
-        url_entry = Gtk.Entry()
-        url_entry.set_activates_default(True)
-        url_entry.set_placeholder_text('https://github.com/user/repo.git')
-        content.pack_start(url_entry, False, False, 0)
-
-        def on_url_changed(entry):
-            """Enable Add button only if URL is not empty."""
-            add_button.set_sensitive(bool(entry.get_text().strip()))
-
-        url_entry.connect('changed', on_url_changed)
-
-        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
-
-        fetch_check = Gtk.CheckButton(label='Fetch Immediately')
-        fetch_check.set_active(False)
-        content.pack_start(fetch_check, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        name = name_entry.get_text().strip()
-        url = url_entry.get_text().strip()
-        fetch_after = fetch_check.get_active()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and name and url:
+        result = dialogs.show_add_remote_dialog(self, self._git)
+        if result:
+            name, url, fetch_after = result
             success, message = self._git.add_remote(name, url)
             self._set_status(message)
             if not success:
@@ -1649,74 +845,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_rename_remote_dialog(self):
         """Show dialog to rename a remote."""
-        remotes = self._git.get_remotes()
-        if not remotes:
-            self._show_error('Rename Remote', 'No remotes configured.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Rename Remote',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Rename', Gtk.ResponseType.OK
-        )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
-
-        rename_button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        rename_button.set_sensitive(False)
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        # Remote selection
-        remote_label = Gtk.Label(label='Remote to rename:')
-        remote_label.set_xalign(0)
-        content.pack_start(remote_label, False, False, 0)
-
-        remote_combo = Gtk.ComboBoxText()
-        for remote in remotes:
-            remote_combo.append_text(remote)
-        remote_combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(remote_combo, False, False, 0)
-
-        # New name entry
-        new_name_label = Gtk.Label(label='New name:')
-        new_name_label.set_xalign(0)
-        content.pack_start(new_name_label, False, False, 0)
-
-        new_name_entry = Gtk.Entry()
-        new_name_entry.set_activates_default(True)
-        content.pack_start(new_name_entry, False, False, 0)
-
-        def on_name_changed(entry):
-            """Enable Rename button only if new name is not empty and different."""
-            new_name = entry.get_text().strip()
-            old_name = remote_combo.get_active_text()
-            rename_button.set_sensitive(bool(new_name) and new_name != old_name)
-
-        def on_remote_changed(combo):
-            """Update validation when remote selection changes."""
-            on_name_changed(new_name_entry)
-
-        new_name_entry.connect('changed', on_name_changed)
-        remote_combo.connect('changed', on_remote_changed)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        old_name = remote_combo.get_active_text()
-        new_name = new_name_entry.get_text().strip()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and old_name and new_name:
+        result = dialogs.show_rename_remote_dialog(self, self._git)
+        if result:
+            old_name, new_name = result
             success, message = self._git.rename_remote(old_name, new_name)
             self._set_status(message)
             if not success:
@@ -1724,143 +855,18 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_delete_remote_dialog(self):
         """Show dialog to delete a remote."""
-        remotes = self._git.get_remotes()
-        if not remotes:
-            self._show_error('Delete Remote', 'No remotes configured.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Delete Remote',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Delete', Gtk.ResponseType.OK
-        )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
-
-        delete_button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        delete_button.get_style_context().add_class('destructive-action')
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        # Remote selection
-        remote_label = Gtk.Label(label='Remote to delete:')
-        remote_label.set_xalign(0)
-        content.pack_start(remote_label, False, False, 0)
-
-        remote_combo = Gtk.ComboBoxText()
-        for remote in remotes:
-            remote_combo.append_text(remote)
-        remote_combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(remote_combo, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.CANCEL)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_remote = remote_combo.get_active_text()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_remote:
-            # Show confirmation dialog
-            confirm = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.NONE,
-                text=f'Delete remote "{selected_remote}"?'
-            )
-            confirm.format_secondary_text(
-                'This will remove the remote and all its tracking branches. '
-                'This action cannot be undone.'
-            )
-            confirm.add_button('Cancel', Gtk.ResponseType.CANCEL)
-            confirm.add_button('Delete', Gtk.ResponseType.OK)
-
-            delete_btn = confirm.get_widget_for_response(Gtk.ResponseType.OK)
-            delete_btn.get_style_context().add_class('destructive-action')
-
-            confirm_response = confirm.run()
-            confirm.destroy()
-
-            if confirm_response == Gtk.ResponseType.OK:
-                success, message = self._git.delete_remote(selected_remote)
-                self._set_status(message)
-                if not success:
-                    self._show_error('Delete Remote Error', message)
+        result = dialogs.show_delete_remote_dialog(self, self._git)
+        if result:
+            success, message = self._git.delete_remote(result)
+            self._set_status(message)
+            if not success:
+                self._show_error('Delete Remote Error', message)
 
     def _show_reset_branch_dialog(self):
         """Show dialog to reset current branch."""
-        dialog = Gtk.Dialog(
-            title='Reset Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Reset', Gtk.ResponseType.OK
-        )
-
-        # Make reset button destructive
-        reset_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        reset_btn.get_style_context().add_class('destructive-action')
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        current_branch = self._git.get_current_branch()
-        info_label = Gtk.Label(label=f'Reset branch: {current_branch}')
-        info_label.set_xalign(0)
-        content.pack_start(info_label, False, False, 0)
-
-        label = Gtk.Label(label='Reset to (commit/branch/tag):')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        entry = Gtk.Entry()
-        entry.set_text('HEAD')
-        entry.set_activates_default(True)
-        content.pack_start(entry, False, False, 0)
-
-        mode_label = Gtk.Label(label='Reset mode:')
-        mode_label.set_xalign(0)
-        content.pack_start(mode_label, False, False, 0)
-
-        soft_radio = Gtk.RadioButton.new_with_label(None, 'Soft (keep changes staged)')
-        content.pack_start(soft_radio, False, False, 0)
-
-        mixed_radio = Gtk.RadioButton.new_with_label_from_widget(soft_radio, 'Mixed (keep changes unstaged)')
-        mixed_radio.set_active(True)
-        content.pack_start(mixed_radio, False, False, 0)
-
-        hard_radio = Gtk.RadioButton.new_with_label_from_widget(soft_radio, 'Hard (discard all changes)')
-        content.pack_start(hard_radio, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        target = entry.get_text().strip()
-        if soft_radio.get_active():
-            mode = 'soft'
-        elif hard_radio.get_active():
-            mode = 'hard'
-        else:
-            mode = 'mixed'
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and target:
+        result = dialogs.show_reset_branch_dialog(self, self._git)
+        if result:
+            target, mode = result
             success, message = self._git.reset_branch(target, mode=mode)
             self._set_status(message)
             if success:
@@ -1870,64 +876,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_merge_dialog(self):
         """Show dialog to merge a branch."""
-        branches = self._git.get_branches()
-        current_branch = self._git.get_current_branch()
-        # Filter out current branch
-        branches = [b for b in branches if b != current_branch]
-
-        if not branches:
-            self._show_error('Merge', 'No other branches available to merge.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Merge Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Merge', Gtk.ResponseType.OK
-        )
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        info_label = Gtk.Label(label=f'Merge into: {current_branch}')
-        info_label.set_xalign(0)
-        content.pack_start(info_label, False, False, 0)
-
-        label = Gtk.Label(label='Select branch to merge:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        combo = Gtk.ComboBoxText()
-        for branch in branches:
-            combo.append_text(branch)
-        combo.set_active(0)
-        content.pack_start(combo, False, False, 0)
-
-        # Options
-        no_ff_check = Gtk.CheckButton(label='No fast-forward (always create merge commit)')
-        content.pack_start(no_ff_check, False, False, 0)
-
-        squash_check = Gtk.CheckButton(label='Squash commits')
-        content.pack_start(squash_check, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_branch = combo.get_active_text()
-        no_ff = no_ff_check.get_active()
-        squash = squash_check.get_active()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_branch:
-            success, message = self._git.merge_branch(selected_branch, no_ff=no_ff, squash=squash)
+        result = dialogs.show_merge_dialog(self, self._git)
+        if result:
+            branch, no_ff, squash = result
+            success, message = self._git.merge_branch(branch, no_ff=no_ff, squash=squash)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -1936,59 +888,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_rebase_dialog(self):
         """Show dialog to rebase current branch."""
-        branches = self._git.get_branches()
-        current_branch = self._git.get_current_branch()
-        # Filter out current branch
-        branches = [b for b in branches if b != current_branch]
-
-        if not branches:
-            self._show_error('Rebase', 'No other branches available to rebase onto.')
-            return
-
-        dialog = Gtk.Dialog(
-            title='Rebase Branch',
-            transient_for=self,
-            modal=True
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            'Rebase', Gtk.ResponseType.OK
-        )
-
-        # Make rebase button look cautionary
-        rebase_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        rebase_btn.get_style_context().add_class('suggested-action')
-
-        content = dialog.get_content_area()
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_spacing(6)
-
-        info_label = Gtk.Label(label=f'Rebase branch: {current_branch}')
-        info_label.set_xalign(0)
-        content.pack_start(info_label, False, False, 0)
-
-        label = Gtk.Label(label='Rebase onto:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
-
-        combo = Gtk.ComboBoxText()
-        for branch in branches:
-            combo.append_text(branch)
-        combo.set_active(0)
-        content.pack_start(combo, False, False, 0)
-
-        dialog.set_default_response(Gtk.ResponseType.OK)
-        dialog.show_all()
-
-        response = dialog.run()
-        selected_branch = combo.get_active_text()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK and selected_branch:
-            success, message = self._git.rebase_branch(selected_branch)
+        result = dialogs.show_rebase_dialog(self, self._git)
+        if result:
+            success, message = self._git.rebase_branch(result)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -1997,23 +899,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_open_dialog(self):
         """Show dialog to open a repository."""
-        dialog = Gtk.FileChooserDialog(
-            title='Open Git Repository',
-            parent=self,
-            action=Gtk.FileChooserAction.SELECT_FOLDER
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OPEN, Gtk.ResponseType.OK
-        )
-
-        # Set initial folder
-        if self._git.repo_path:
-            dialog.set_current_folder(self._git.repo_path)
-        else:
-            dialog.set_current_folder(os.path.expanduser('~'))
-
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            self.open_repository(dialog.get_filename())
-        dialog.destroy()
+        result = dialogs.show_open_repository_dialog(self, self._git.repo_path)
+        if result:
+            self.open_repository(result)
