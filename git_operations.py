@@ -259,11 +259,12 @@ class GitOperations:
             return False, 'Empty commit message'
 
         try:
-            args = ['-m', message]
+            args = []
             if amend:
-                args.insert(0, '--amend')
+                args.append('--amend')
             if sign_off:
-                args.insert(0, '--signoff')
+                args.append('--signoff')
+            args.extend(['-m', message])
 
             self.repo.git.commit(*args)
             return True, 'Commit successful'
