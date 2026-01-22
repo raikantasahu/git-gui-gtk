@@ -12,6 +12,20 @@ A modern GTK3 replacement for the classic `git-gui` tool. Provides a graphical i
 - **Remotes**: Add, rename, delete remotes; push, pull, and fetch operations
 - **Database Tools**: View statistics, compress, and verify the Git database
 
+## Screenshots
+
+![Main Window](screenshots/main-window.png)
+
+*Main window showing unstaged/staged files and diff view*
+
+![Commit Message](screenshots/commit-message.png)
+
+*Commit message*
+
+![Branch Menu](screenshots/branch-menu.png)
+
+*The Branch Menu*
+
 ## Requirements
 
 ### System Dependencies
