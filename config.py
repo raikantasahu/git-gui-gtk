@@ -5,5 +5,5 @@ class UIConfig:
     """UI configuration constants."""
 
     HEADER_HEIGHT = 24
-    DIALOG_WIDTH = 350
+    DIALOG_WIDTH = 400
     REMOTE_DIALOG_WIDTH = 500
