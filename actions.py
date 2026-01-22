@@ -68,9 +68,9 @@ WINDOW_ACTIONS = [
     ('amend', None, 'toggle_amend'),
 
     # Remote
-    ('push', ['<Ctrl>p'], 'push'),
-    ('pull', ['<Ctrl><Shift>p'], 'pull'),
-    ('fetch', None, 'fetch'),
+    ('push', ['<Ctrl>p'], 'show_push_dialog'),
+    ('pull', ['<Ctrl><Shift>p'], 'show_pull_dialog'),
+    ('fetch', None, 'show_fetch_dialog'),
     ('add-remote', ['<Ctrl>a'], 'show_add_remote_dialog'),
 ]
 

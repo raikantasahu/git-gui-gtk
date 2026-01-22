@@ -310,8 +310,29 @@ class GitOperations:
         except Exception:
             return []
 
-    def push(self, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
+    def get_tracking_remote(self) -> Optional[str]:
+        """Get the remote name for the current branch's tracking branch.
+
+        Returns:
+            Remote name or None if no tracking branch is set
+        """
+        if not self.repo:
+            return None
+        try:
+            branch = self.repo.active_branch
+            tracking = branch.tracking_branch()
+            if tracking:
+                # tracking.remote_name gives the remote
+                return tracking.remote_name
+        except (TypeError, AttributeError):
+            pass
+        return None
+
+    def push(self, remote_name: str, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
         """Push to remote.
+
+        Args:
+            remote_name: Name of the remote to push to
 
         Returns:
             Tuple of (success, message/error)
@@ -320,23 +341,26 @@ class GitOperations:
             return False, 'No repository open'
 
         try:
-            origin = self.repo.remote('origin')
-            push_info = origin.push()
+            remote = self.repo.remote(remote_name)
+            push_info = remote.push()
 
             if push_info:
                 info = push_info[0]
                 if info.flags & info.ERROR:
                     return False, f'Push failed: {info.summary}'
-                return True, 'Push successful'
-            return True, 'Push successful'
+                return True, f'Push to {remote_name} successful'
+            return True, f'Push to {remote_name} successful'
         except GitCommandError as e:
             return False, str(e)
         except ValueError as e:
-            return False, f'No remote configured: {e}'
+            return False, f'Remote not found: {e}'
 
-    def pull(self, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
+    def pull(self, remote_name: str, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
         """Pull from remote.
 
+        Args:
+            remote_name: Name of the remote to pull from
+
         Returns:
             Tuple of (success, message/error)
         """
@@ -344,17 +368,20 @@ class GitOperations:
             return False, 'No repository open'
 
         try:
-            origin = self.repo.remote('origin')
-            pull_info = origin.pull()
-            return True, 'Pull successful'
+            remote = self.repo.remote(remote_name)
+            remote.pull()
+            return True, f'Pull from {remote_name} successful'
         except GitCommandError as e:
             return False, str(e)
         except ValueError as e:
-            return False, f'No remote configured: {e}'
+            return False, f'Remote not found: {e}'
 
-    def fetch(self, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
+    def fetch(self, remote_name: str, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
         """Fetch from remote.
 
+        Args:
+            remote_name: Name of the remote to fetch from
+
         Returns:
             Tuple of (success, message/error)
         """
@@ -362,13 +389,13 @@ class GitOperations:
             return False, 'No repository open'
 
         try:
-            origin = self.repo.remote('origin')
-            origin.fetch()
-            return True, 'Fetch successful'
+            remote = self.repo.remote(remote_name)
+            remote.fetch()
+            return True, f'Fetch from {remote_name} successful'
         except GitCommandError as e:
             return False, str(e)
         except ValueError as e:
-            return False, f'No remote configured: {e}'
+            return False, f'Remote not found: {e}'
 
     def revert_file(self, path: str) -> tuple[bool, str]:
         """Revert a file to its state in HEAD.

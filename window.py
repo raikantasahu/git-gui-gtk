@@ -8,6 +8,7 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GLib
 
+from config import UIConfig
 from git_operations import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
 from actions import get_action_shortcut
@@ -140,7 +141,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._commit_area = CommitArea()
         self._commit_area.set_size_request(-1, 180)
         self._commit_area.connect('commit-requested', self._on_commit_requested)
-        self._commit_area.connect('push-requested', lambda w: self.push())
+        self._commit_area.connect('push-requested', lambda w: self.show_push_dialog())
         self._commit_area.connect('rescan-requested', lambda w: self.rescan())
         self._commit_area.connect('amend-toggled', self._on_amend_toggled)
         right_paned.pack2(self._commit_area, resize=False, shrink=False)
@@ -275,16 +276,16 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         remote_menu.append(Gtk.SeparatorMenuItem())
 
-        fetch_item = _create_menu_item('Fetch', 'fetch')
-        fetch_item.connect('activate', lambda w: self.fetch())
+        fetch_item = _create_menu_item('Fetch...', 'fetch')
+        fetch_item.connect('activate', lambda w: self.show_fetch_dialog())
         remote_menu.append(fetch_item)
 
-        pull_item = _create_menu_item('Pull', 'pull')
-        pull_item.connect('activate', lambda w: self.pull())
+        pull_item = _create_menu_item('Pull...', 'pull')
+        pull_item.connect('activate', lambda w: self.show_pull_dialog())
         remote_menu.append(pull_item)
 
-        push_item = _create_menu_item('Push', 'push')
-        push_item.connect('activate', lambda w: self.push())
+        push_item = _create_menu_item('Push...', 'push')
+        push_item.connect('activate', lambda w: self.show_push_dialog())
         remote_menu.append(push_item)
 
         menubar.append(remote_item)
@@ -959,12 +960,64 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             last_msg = self._git.get_last_commit_message()
             self._commit_area.set_message(last_msg)
 
-    def push(self):
-        """Push to remote."""
-        self._set_status('Pushing...')
+    def _get_default_remote_index(self, remotes):
+        """Get the index of the default remote (tracking remote or first)."""
+        tracking_remote = self._git.get_tracking_remote()
+        if tracking_remote and tracking_remote in remotes:
+            return remotes.index(tracking_remote)
+        return 0
+
+    def show_push_dialog(self):
+        """Show dialog to push to a remote."""
+        remotes = self._git.get_remotes()
+        if not remotes:
+            self._show_error('Push', 'No remotes configured.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Push',
+            transient_for=self,
+            modal=True
+        )
+        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Push', Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label = Gtk.Label(label='Push to remote:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        for remote in remotes:
+            combo.append_text(remote)
+        combo.set_active(self._get_default_remote_index(remotes))
+        content.pack_start(combo, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_remote = combo.get_active_text()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_remote:
+            self._do_push(selected_remote)
+
+    def _do_push(self, remote_name):
+        """Perform push to the specified remote."""
+        self._set_status(f'Pushing to {remote_name}...')
 
         def push_async():
-            success, message = self._git.push()
+            success, message = self._git.push(remote_name)
             GLib.idle_add(self._on_push_complete, success, message)
 
         import threading
@@ -978,12 +1031,57 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         if not success:
             self._show_error('Push Error', message)
 
-    def pull(self):
-        """Pull from remote."""
-        self._set_status('Pulling...')
+    def show_pull_dialog(self):
+        """Show dialog to pull from a remote."""
+        remotes = self._git.get_remotes()
+        if not remotes:
+            self._show_error('Pull', 'No remotes configured.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Pull',
+            transient_for=self,
+            modal=True
+        )
+        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Pull', Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label = Gtk.Label(label='Pull from remote:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        for remote in remotes:
+            combo.append_text(remote)
+        combo.set_active(self._get_default_remote_index(remotes))
+        content.pack_start(combo, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_remote = combo.get_active_text()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_remote:
+            self._do_pull(selected_remote)
+
+    def _do_pull(self, remote_name):
+        """Perform pull from the specified remote."""
+        self._set_status(f'Pulling from {remote_name}...')
 
         def pull_async():
-            success, message = self._git.pull()
+            success, message = self._git.pull(remote_name)
             GLib.idle_add(self._on_pull_complete, success, message)
 
         import threading
@@ -999,12 +1097,57 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         else:
             self._show_error('Pull Error', message)
 
-    def fetch(self):
-        """Fetch from remote."""
-        self._set_status('Fetching...')
+    def show_fetch_dialog(self):
+        """Show dialog to fetch from a remote."""
+        remotes = self._git.get_remotes()
+        if not remotes:
+            self._show_error('Fetch', 'No remotes configured.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Fetch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Fetch', Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        label = Gtk.Label(label='Fetch from remote:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        for remote in remotes:
+            combo.append_text(remote)
+        combo.set_active(self._get_default_remote_index(remotes))
+        content.pack_start(combo, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_remote = combo.get_active_text()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_remote:
+            self._do_fetch(selected_remote)
+
+    def _do_fetch(self, remote_name):
+        """Perform fetch from the specified remote."""
+        self._set_status(f'Fetching from {remote_name}...')
 
         def fetch_async():
-            success, message = self._git.fetch()
+            success, message = self._git.fetch(remote_name)
             GLib.idle_add(self._on_fetch_complete, success, message)
 
         import threading
@@ -1289,7 +1432,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             modal=True
         )
         dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
-        dialog.set_default_size(500, 200)
+        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, 200)
 
         content = dialog.get_content_area()
         content.set_margin_start(12)
@@ -1342,7 +1485,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
             Gtk.STOCK_OK, Gtk.ResponseType.OK
         )
-        dialog.set_default_size(500, 200)
+        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, 200)
 
         content = dialog.get_content_area()
         content.set_margin_start(12)
