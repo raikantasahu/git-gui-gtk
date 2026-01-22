@@ -6,7 +6,7 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, Gio, GLib
+from gi.repository import Gtk, Gdk, GLib
 
 from git_operations import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
@@ -25,7 +25,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._current_file = None
 
         self._setup_ui()
-        self._setup_menu()
 
         # Try to open current directory as repo
         cwd = os.getcwd()
@@ -133,23 +132,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         main_box.pack_start(self._status_bar, False, False, 0)
 
         main_box.show_all()
-
-    def _setup_menu(self):
-        """Set up keyboard shortcuts and window actions."""
-        # Stage selected file
-        stage_action = Gio.SimpleAction.new('stage-selected', None)
-        stage_action.connect('activate', lambda a, p: self._stage_selected())
-        self.add_action(stage_action)
-
-        # Unstage selected file
-        unstage_action = Gio.SimpleAction.new('unstage-selected', None)
-        unstage_action.connect('activate', lambda a, p: self._unstage_selected())
-        self.add_action(unstage_action)
-
-        # Revert selected file
-        revert_action = Gio.SimpleAction.new('revert-selected', None)
-        revert_action.connect('activate', lambda a, p: self._revert_selected())
-        self.add_action(revert_action)
 
     def _create_menubar(self):
         """Create the menu bar."""
