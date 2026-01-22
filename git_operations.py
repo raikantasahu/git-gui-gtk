@@ -598,6 +598,35 @@ class GitOperations:
         except Exception as e:
             return False, str(e)
 
+    def rename_remote(self, old_name: str, new_name: str) -> tuple[bool, str]:
+        """Rename a remote.
+
+        Args:
+            old_name: Current remote name
+            new_name: New remote name
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.git.remote('rename', old_name, new_name)
+            return True, f'Remote {old_name} renamed to {new_name}'
+        except GitCommandError as e:
+            return False, str(e)
+
+    def delete_remote(self, name: str) -> tuple[bool, str]:
+        """Delete a remote.
+
+        Args:
+            name: Remote name to delete
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.git.remote('remove', name)
+            return True, f'Remote {name} deleted'
+        except GitCommandError as e:
+            return False, str(e)
+
     def get_log(self, max_count: int = 50) -> list[dict]:
         """Get commit log.
 
