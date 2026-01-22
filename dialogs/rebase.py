@@ -37,10 +37,6 @@ def show_rebase_dialog(parent, repo):
         'Rebase', Gtk.ResponseType.OK
     )
 
-    # Make rebase button look cautionary
-    rebase_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-    rebase_btn.get_style_context().add_class('suggested-action')
-
     content = dialog.get_content_area()
     content.set_margin_start(12)
     content.set_margin_end(12)
