@@ -1030,6 +1030,24 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         dialog.run()
         dialog.destroy()
 
+    def _show_status_dialog(self, title, message, success):
+        """Show a status dialog for operation results."""
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.INFO if success else Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.NONE,
+            text=title
+        )
+        dialog.format_secondary_text(message)
+        button_box = dialog.get_action_area()
+        button_box.set_layout(Gtk.ButtonBoxStyle.END)
+        button_box.set_margin_end(12)
+        button_box.set_margin_bottom(12)
+        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
+        dialog.run()
+        dialog.destroy()
+
     def _show_create_branch_dialog(self):
         """Show dialog to create a new branch."""
         dialog = Gtk.Dialog(
@@ -1490,8 +1508,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             if success:
                 self._update_branch_label()
                 self.rescan()
-            else:
-                self._show_error('Merge Error', message)
+            self._show_status_dialog('Merge', message, success)
 
     def _show_rebase_dialog(self):
         """Show dialog to rebase current branch."""
@@ -1552,8 +1569,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             if success:
                 self._update_branch_label()
                 self.rescan()
-            else:
-                self._show_error('Rebase Error', message)
+            self._show_status_dialog('Rebase', message, success)
 
     def show_open_dialog(self):
         """Show dialog to open a repository."""
