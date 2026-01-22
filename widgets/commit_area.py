@@ -4,7 +4,7 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, GObject
+from gi.repository import Gtk, Gdk, GObject, Pango
 
 from config import UIConfig
 
@@ -74,6 +74,7 @@ class CommitArea(Gtk.Box):
         self._text_view.set_bottom_margin(8)
         self._text_view.set_left_margin(8)
         self._text_view.set_right_margin(8)
+        self._text_view.override_font(Pango.FontDescription.from_string('monospace'))
 
         self._buffer = self._text_view.get_buffer()
 
