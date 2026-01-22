@@ -1,6 +1,7 @@
 """Utility functions for Git GUI GTK."""
 
 import os
+import re
 from typing import Optional
 
 
@@ -102,6 +103,52 @@ def truncate_path(path: str, max_length: int = 50) -> str:
     if len(result) > max_length:
         return '...' + path[-(max_length - 3):]
     return result
+
+
+def is_valid_branch_name(name: str) -> bool:
+    """Check if a branch name is valid according to git rules.
+
+    Args:
+        name: Branch name to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not name:
+        return False
+
+    # Cannot start with a dot
+    if name.startswith('.'):
+        return False
+
+    # Cannot end with a slash
+    if name.endswith('/'):
+        return False
+
+    # Cannot end with .lock
+    if name.endswith('.lock'):
+        return False
+
+    # Cannot contain these patterns/characters
+    invalid_patterns = [
+        r'\.\.',      # double dots
+        r'@\{',       # @{
+        r'[\s~^:?*\[\]\\]',  # space, ~, ^, :, ?, *, [, ], \
+    ]
+
+    for pattern in invalid_patterns:
+        if re.search(pattern, name):
+            return False
+
+    # Cannot have consecutive slashes
+    if '//' in name:
+        return False
+
+    # Cannot have a component starting with a dot (e.g., foo/.bar)
+    if '/.' in name:
+        return False
+
+    return True
 
 
 def is_binary_file(filepath: str) -> bool:

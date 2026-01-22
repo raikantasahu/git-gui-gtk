@@ -21,6 +21,8 @@ from .pull import pull
 from .fetch import fetch
 from .revert_file import revert_file
 from .get_branches import get_branches
+from .get_tracking_branches import get_tracking_branches
+from .get_tags import get_tags
 from .create_branch import create_branch
 from .checkout_branch import checkout_branch
 from .delete_branch import delete_branch
@@ -73,6 +75,8 @@ __all__ = [
     'revert_file',
     # Branch operations
     'get_branches',
+    'get_tracking_branches',
+    'get_tags',
     'create_branch',
     'checkout_branch',
     'delete_branch',

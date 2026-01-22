@@ -788,8 +788,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         """Show dialog to create a new branch."""
         result = dialogs.show_create_branch_dialog(self, self._repo)
         if result:
-            branch_name, checkout = result
-            success, message = gitops.create_branch(self._repo,branch_name, checkout=checkout)
+            branch_name, base, checkout = result
+            success, message = gitops.create_branch(
+                self._repo, branch_name, start_point=base, checkout=checkout
+            )
             self._set_status(message)
             if success:
                 self._update_branch_label()
