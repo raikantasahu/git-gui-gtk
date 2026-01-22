@@ -974,6 +974,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._show_error('Push', 'No remotes configured.')
             return
 
+        current_branch = self._git.get_current_branch()
+
         dialog = Gtk.Dialog(
             title='Push',
             transient_for=self,
@@ -992,32 +994,77 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         content.set_margin_bottom(12)
         content.set_spacing(6)
 
-        label = Gtk.Label(label='Push to remote:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
+        # Remote selection
+        remote_label = Gtk.Label(label='Remote:')
+        remote_label.set_xalign(0)
+        content.pack_start(remote_label, False, False, 0)
 
-        combo = Gtk.ComboBoxText()
+        remote_combo = Gtk.ComboBoxText()
         for remote in remotes:
-            combo.append_text(remote)
-        combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(combo, False, False, 0)
+            remote_combo.append_text(remote)
+        remote_combo.set_active(self._get_default_remote_index(remotes))
+        content.pack_start(remote_combo, False, False, 0)
+
+        # Branch selection
+        branch_label = Gtk.Label(label='Remote branch:')
+        branch_label.set_xalign(0)
+        content.pack_start(branch_label, False, False, 0)
+
+        branch_combo = Gtk.ComboBoxText()
+        content.pack_start(branch_combo, False, False, 0)
+
+        def update_branches(combo):
+            """Update branch dropdown when remote changes."""
+            branch_combo.remove_all()
+            selected_remote = combo.get_active_text()
+            if selected_remote:
+                branches = self._git.get_remote_branches(selected_remote)
+                default_index = 0
+                for i, branch in enumerate(branches):
+                    branch_combo.append_text(branch)
+                    if branch == current_branch:
+                        default_index = i
+                if branches:
+                    branch_combo.set_active(default_index)
+
+        remote_combo.connect('changed', update_branches)
+        update_branches(remote_combo)
+
+        # Push options
+        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
+
+        options_label = Gtk.Label(label='Push options:')
+        options_label.set_xalign(0)
+        content.pack_start(options_label, False, False, 0)
+
+        force_check = Gtk.CheckButton(label='Force push (--force)')
+        force_check.set_tooltip_text('Overwrites remote branch. Use with caution!')
+        content.pack_start(force_check, False, False, 0)
+
+        tags_check = Gtk.CheckButton(label='Push tags (--tags)')
+        tags_check.set_tooltip_text('Push all local tags to the remote')
+        content.pack_start(tags_check, False, False, 0)
 
         dialog.set_default_response(Gtk.ResponseType.OK)
         dialog.show_all()
 
         response = dialog.run()
-        selected_remote = combo.get_active_text()
+        selected_remote = remote_combo.get_active_text()
+        selected_branch = branch_combo.get_active_text()
+        force = force_check.get_active()
+        tags = tags_check.get_active()
         dialog.destroy()
 
         if response == Gtk.ResponseType.OK and selected_remote:
-            self._do_push(selected_remote)
+            self._do_push(selected_remote, selected_branch, force, tags)
 
-    def _do_push(self, remote_name):
+    def _do_push(self, remote_name, branch_name=None, force=False, tags=False):
         """Perform push to the specified remote."""
-        self._set_status(f'Pushing to {remote_name}...')
+        branch_display = f'{remote_name}/{branch_name}' if branch_name else remote_name
+        self._set_status(f'Pushing to {branch_display}...')
 
         def push_async():
-            success, message = self._git.push(remote_name)
+            success, message = self._git.push(remote_name, branch_name, force, tags)
             GLib.idle_add(self._on_push_complete, success, message)
 
         import threading
@@ -1038,6 +1085,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._show_error('Pull', 'No remotes configured.')
             return
 
+        current_branch = self._git.get_current_branch()
+
         dialog = Gtk.Dialog(
             title='Pull',
             transient_for=self,
@@ -1056,32 +1105,79 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         content.set_margin_bottom(12)
         content.set_spacing(6)
 
-        label = Gtk.Label(label='Pull from remote:')
-        label.set_xalign(0)
-        content.pack_start(label, False, False, 0)
+        # Remote selection
+        remote_label = Gtk.Label(label='Remote:')
+        remote_label.set_xalign(0)
+        content.pack_start(remote_label, False, False, 0)
 
-        combo = Gtk.ComboBoxText()
+        remote_combo = Gtk.ComboBoxText()
         for remote in remotes:
-            combo.append_text(remote)
-        combo.set_active(self._get_default_remote_index(remotes))
-        content.pack_start(combo, False, False, 0)
+            remote_combo.append_text(remote)
+        remote_combo.set_active(self._get_default_remote_index(remotes))
+        content.pack_start(remote_combo, False, False, 0)
+
+        # Branch selection
+        branch_label = Gtk.Label(label='Remote branch:')
+        branch_label.set_xalign(0)
+        content.pack_start(branch_label, False, False, 0)
+
+        branch_combo = Gtk.ComboBoxText()
+        content.pack_start(branch_combo, False, False, 0)
+
+        def update_branches(combo):
+            """Update branch dropdown when remote changes."""
+            branch_combo.remove_all()
+            selected_remote = combo.get_active_text()
+            if selected_remote:
+                branches = self._git.get_remote_branches(selected_remote)
+                default_index = 0
+                for i, branch in enumerate(branches):
+                    branch_combo.append_text(branch)
+                    if branch == current_branch:
+                        default_index = i
+                if branches:
+                    branch_combo.set_active(default_index)
+
+        remote_combo.connect('changed', update_branches)
+        update_branches(remote_combo)
+
+        # Pull options
+        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
+
+        options_label = Gtk.Label(label='Pull options:')
+        options_label.set_xalign(0)
+        content.pack_start(options_label, False, False, 0)
+
+        default_radio = Gtk.RadioButton.new_with_label(None, 'Default (merge)')
+        default_radio.set_active(True)
+        content.pack_start(default_radio, False, False, 0)
+
+        ff_only_radio = Gtk.RadioButton.new_with_label_from_widget(default_radio, 'Fast-forward only (--ff-only)')
+        content.pack_start(ff_only_radio, False, False, 0)
+
+        rebase_radio = Gtk.RadioButton.new_with_label_from_widget(default_radio, 'Rebase (--rebase)')
+        content.pack_start(rebase_radio, False, False, 0)
 
         dialog.set_default_response(Gtk.ResponseType.OK)
         dialog.show_all()
 
         response = dialog.run()
-        selected_remote = combo.get_active_text()
+        selected_remote = remote_combo.get_active_text()
+        selected_branch = branch_combo.get_active_text()
+        ff_only = ff_only_radio.get_active()
+        rebase = rebase_radio.get_active()
         dialog.destroy()
 
         if response == Gtk.ResponseType.OK and selected_remote:
-            self._do_pull(selected_remote)
+            self._do_pull(selected_remote, selected_branch, ff_only, rebase)
 
-    def _do_pull(self, remote_name):
+    def _do_pull(self, remote_name, branch_name=None, ff_only=False, rebase=False):
         """Perform pull from the specified remote."""
-        self._set_status(f'Pulling from {remote_name}...')
+        branch_display = f'{remote_name}/{branch_name}' if branch_name else remote_name
+        self._set_status(f'Pulling from {branch_display}...')
 
         def pull_async():
-            success, message = self._git.pull(remote_name)
+            success, message = self._git.pull(remote_name, branch_name, ff_only, rebase)
             GLib.idle_add(self._on_pull_complete, success, message)
 
         import threading

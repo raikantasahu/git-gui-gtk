@@ -328,11 +328,16 @@ class GitOperations:
             pass
         return None
 
-    def push(self, remote_name: str, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
+    def push(self, remote_name: str, branch_name: str = None,
+             force: bool = False, tags: bool = False,
+             progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
         """Push to remote.
 
         Args:
             remote_name: Name of the remote to push to
+            branch_name: Name of the branch to push (optional)
+            force: If True, use --force option
+            tags: If True, use --tags option
 
         Returns:
             Tuple of (success, message/error)
@@ -341,25 +346,57 @@ class GitOperations:
             return False, 'No repository open'
 
         try:
-            remote = self.repo.remote(remote_name)
-            push_info = remote.push()
+            args = []
+            if force:
+                args.append('--force')
+            if tags:
+                args.append('--tags')
 
-            if push_info:
-                info = push_info[0]
-                if info.flags & info.ERROR:
-                    return False, f'Push failed: {info.summary}'
-                return True, f'Push to {remote_name} successful'
-            return True, f'Push to {remote_name} successful'
+            args.append(remote_name)
+            if branch_name:
+                args.append(branch_name)
+
+            self.repo.git.push(*args)
+            branch_display = f'{remote_name}/{branch_name}' if branch_name else remote_name
+            return True, f'Push to {branch_display} successful'
         except GitCommandError as e:
             return False, str(e)
         except ValueError as e:
             return False, f'Remote not found: {e}'
 
-    def pull(self, remote_name: str, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
+    def get_remote_branches(self, remote_name: str) -> list[str]:
+        """Get list of branches for a specific remote.
+
+        Args:
+            remote_name: Name of the remote
+
+        Returns:
+            List of branch names (without the remote/ prefix)
+        """
+        if not self.repo:
+            return []
+        try:
+            branches = []
+            prefix = f'refs/remotes/{remote_name}/'
+            for ref in self.repo.refs:
+                if ref.path.startswith(prefix):
+                    branch_name = ref.path[len(prefix):]
+                    if branch_name != 'HEAD':
+                        branches.append(branch_name)
+            return sorted(branches)
+        except Exception:
+            return []
+
+    def pull(self, remote_name: str, branch_name: str = None,
+             ff_only: bool = False, rebase: bool = False,
+             progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
         """Pull from remote.
 
         Args:
             remote_name: Name of the remote to pull from
+            branch_name: Name of the remote branch to pull (optional)
+            ff_only: If True, use --ff-only option
+            rebase: If True, use --rebase option
 
         Returns:
             Tuple of (success, message/error)
@@ -368,9 +405,19 @@ class GitOperations:
             return False, 'No repository open'
 
         try:
-            remote = self.repo.remote(remote_name)
-            remote.pull()
-            return True, f'Pull from {remote_name} successful'
+            args = []
+            if ff_only:
+                args.append('--ff-only')
+            elif rebase:
+                args.append('--rebase')
+
+            if branch_name:
+                args.extend([remote_name, branch_name])
+            else:
+                args.append(remote_name)
+
+            self.repo.git.pull(*args)
+            return True, f'Pull from {remote_name}/{branch_name or ""} successful'
         except GitCommandError as e:
             return False, str(e)
         except ValueError as e:
