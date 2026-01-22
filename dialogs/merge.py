@@ -16,7 +16,8 @@ def show_merge_dialog(parent, repo):
         repo: Git repository object
 
     Returns:
-        Tuple of (branch, no_ff, squash) or None if cancelled
+        Tuple of (branch, strategy) or None if cancelled.
+        Strategy is one of: 'default', 'no-ff', 'ff-only', 'squash'
     """
     # Fetch data
     current_branch = gitops.get_current_branch(repo)
@@ -124,12 +125,28 @@ def show_merge_dialog(parent, repo):
     # Separator
     content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
 
-    # Options
-    no_ff_check = Gtk.CheckButton(label='No fast-forward (always create merge commit)')
-    content.pack_start(no_ff_check, False, False, 0)
+    # Merge strategy options (mutually exclusive)
+    strategy_label = Gtk.Label(label='Merge strategy:')
+    strategy_label.set_xalign(0)
+    content.pack_start(strategy_label, False, False, 0)
 
-    squash_check = Gtk.CheckButton(label='Squash commits')
-    content.pack_start(squash_check, False, False, 0)
+    default_radio = Gtk.RadioButton.new_with_label(None, 'Default')
+    content.pack_start(default_radio, False, False, 0)
+
+    no_ff_radio = Gtk.RadioButton.new_with_label_from_widget(
+        default_radio, 'No fast-forward (always create merge commit)'
+    )
+    content.pack_start(no_ff_radio, False, False, 0)
+
+    ff_only_radio = Gtk.RadioButton.new_with_label_from_widget(
+        default_radio, 'Fast-forward only (fails if merge commit is needed)'
+    )
+    content.pack_start(ff_only_radio, False, False, 0)
+
+    squash_radio = Gtk.RadioButton.new_with_label_from_widget(
+        default_radio, 'Squash commits (needs to be committed after merge)'
+    )
+    content.pack_start(squash_radio, False, False, 0)
 
     dialog.set_default_response(Gtk.ResponseType.OK)
     dialog.show_all()
@@ -137,10 +154,19 @@ def show_merge_dialog(parent, repo):
     response = dialog.run()
     selected_row = listbox.get_selected_row()
     selected = selected_row.item_name if selected_row else None
-    no_ff = no_ff_check.get_active()
-    squash = squash_check.get_active()
+
+    # Determine selected strategy
+    if no_ff_radio.get_active():
+        strategy = 'no-ff'
+    elif ff_only_radio.get_active():
+        strategy = 'ff-only'
+    elif squash_radio.get_active():
+        strategy = 'squash'
+    else:
+        strategy = 'default'
+
     dialog.destroy()
 
     if response == Gtk.ResponseType.OK and selected:
-        return (selected, no_ff, squash)
+        return (selected, strategy)
     return None

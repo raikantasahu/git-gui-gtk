@@ -5,14 +5,17 @@ from typing import Optional
 from git import Repo, GitCommandError
 
 
-def merge_branch(repo: Optional[Repo], branch: str, no_ff: bool = False, squash: bool = False) -> tuple[bool, str]:
+def merge_branch(
+    repo: Optional[Repo],
+    branch: str,
+    strategy: str = 'default'
+) -> tuple[bool, str]:
     """Merge a branch into the current branch.
 
     Args:
         repo: Git repository object
         branch: Branch to merge
-        no_ff: If True, always create a merge commit
-        squash: If True, squash all commits into one
+        strategy: Merge strategy - one of 'default', 'no-ff', 'ff-only', 'squash'
 
     Returns:
         Tuple of (success, message/error)
@@ -20,12 +23,18 @@ def merge_branch(repo: Optional[Repo], branch: str, no_ff: bool = False, squash:
     if not repo:
         return False, 'No repository open'
     try:
-        args = [branch]
-        if no_ff:
-            args.insert(0, '--no-ff')
-        if squash:
-            args.insert(0, '--squash')
+        args = []
+        if strategy == 'no-ff':
+            args.append('--no-ff')
+        elif strategy == 'ff-only':
+            args.append('--ff-only')
+        elif strategy == 'squash':
+            args.append('--squash')
+        args.append(branch)
         repo.git.merge(*args)
+
+        if strategy == 'squash':
+            return True, f'Squashed {branch} into working tree. Please commit the changes.'
         return True, f'Merged {branch} successfully'
     except GitCommandError as e:
         return False, str(e)

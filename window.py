@@ -883,8 +883,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         """Show dialog to merge a branch."""
         result = dialogs.show_merge_dialog(self, self._repo)
         if result:
-            branch, no_ff, squash = result
-            success, message = gitops.merge_branch(self._repo,branch, no_ff=no_ff, squash=squash)
+            branch, strategy = result
+            success, message = gitops.merge_branch(self._repo, branch, strategy=strategy)
             self._set_status(message)
             if success:
                 self._update_branch_label()
