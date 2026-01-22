@@ -269,6 +269,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         help_item = Gtk.MenuItem(label='Help')
         help_item.set_submenu(help_menu)
 
+        git_docs_item = Gtk.MenuItem(label='Online Git Documentation')
+        git_docs_item.connect('activate', lambda w: self._open_git_documentation())
+        help_menu.append(git_docs_item)
+
         ssh_key_item = Gtk.MenuItem(label='Show SSH Key')
         ssh_key_item.connect('activate', lambda w: self._show_ssh_key())
         help_menu.append(ssh_key_item)
@@ -282,6 +286,11 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         menubar.append(help_item)
 
         return menubar
+
+    def _open_git_documentation(self):
+        """Open Git documentation in default web browser."""
+        import webbrowser
+        webbrowser.open('https://git-scm.com/doc')
 
     def _show_ssh_key(self):
         """Show the user's SSH public key."""
