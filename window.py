@@ -1579,9 +1579,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         )
         dialog.add_buttons(
             Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OK, Gtk.ResponseType.OK
+            'Add', Gtk.ResponseType.OK
         )
-        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, 200)
+        dialog.set_default_size(UIConfig.REMOTE_DIALOG_WIDTH, -1)
+
+        add_button = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        add_button.set_sensitive(False)
 
         content = dialog.get_content_area()
         content.set_margin_start(12)
@@ -1607,12 +1610,25 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         url_entry.set_placeholder_text('https://github.com/user/repo.git')
         content.pack_start(url_entry, False, False, 0)
 
+        def on_url_changed(entry):
+            """Enable Add button only if URL is not empty."""
+            add_button.set_sensitive(bool(entry.get_text().strip()))
+
+        url_entry.connect('changed', on_url_changed)
+
+        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 6)
+
+        fetch_check = Gtk.CheckButton(label='Fetch Immediately')
+        fetch_check.set_active(False)
+        content.pack_start(fetch_check, False, False, 0)
+
         dialog.set_default_response(Gtk.ResponseType.OK)
         dialog.show_all()
 
         response = dialog.run()
         name = name_entry.get_text().strip()
         url = url_entry.get_text().strip()
+        fetch_after = fetch_check.get_active()
         dialog.destroy()
 
         if response == Gtk.ResponseType.OK and name and url:
@@ -1620,6 +1636,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status(message)
             if not success:
                 self._show_error('Add Remote Error', message)
+            elif fetch_after:
+                self._do_fetch(name)
 
     def _show_reset_branch_dialog(self):
         """Show dialog to reset current branch."""
