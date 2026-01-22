@@ -6,7 +6,7 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, Gdk, GObject
 
-from git_operations import FileChange, FileStatus
+from gitops import FileChange, FileStatus
 from config import UIConfig
 
 

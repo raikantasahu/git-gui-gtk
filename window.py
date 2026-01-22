@@ -8,7 +8,7 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, GLib
 
-from git_operations import GitOperations, FileChange, FileStatus
+from gitops import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
 from actions import get_action_shortcut
 import dialogs
