@@ -49,7 +49,7 @@ pip install -r requirements.txt
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/git-gui-gtk.git
+   git clone https://github.com/raikantasahu/git-gui-gtk.git
    cd git-gui-gtk
    ```
 

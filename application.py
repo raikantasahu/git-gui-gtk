@@ -52,7 +52,7 @@ class GitGuiApplication(Gtk.Application):
             modal=True,
             program_name='Git GUI GTK',
             version='1.0.0',
-            website='https://github.com/git-gui-gtk',
+            website='https://github.com/raikantasahu/git-gui-gtk',
             copyright='© 2024 Git GUI GTK Contributors',
             license_type=Gtk.License.GPL_3_0,
             comments='A modern GTK3 replacement for git-gui'
