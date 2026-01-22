@@ -28,6 +28,7 @@ class CommitArea(Gtk.Box):
         'commit-requested': (GObject.SignalFlags.RUN_FIRST, None, (str, bool, bool)),
         'push-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
         'rescan-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
+        'amend-toggled': (GObject.SignalFlags.RUN_FIRST, None, (bool,)),
     }
 
     def __init__(self):
@@ -144,6 +145,7 @@ class CommitArea(Gtk.Box):
             self._commit_btn.set_label('Amend')
         else:
             self._commit_btn.set_label('Commit')
+        self.emit('amend-toggled', self._amend_mode)
 
     def get_message(self):
         """Get the commit message."""

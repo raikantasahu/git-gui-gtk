@@ -115,6 +115,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._commit_area.connect('commit-requested', self._on_commit_requested)
         self._commit_area.connect('push-requested', lambda w: self.do_push())
         self._commit_area.connect('rescan-requested', lambda w: self.rescan())
+        self._commit_area.connect('amend-toggled', self._on_amend_toggled)
         right_paned.pack2(self._commit_area, resize=False, shrink=False)
 
         main_paned.pack2(right_paned, resize=True, shrink=False)
@@ -456,6 +457,30 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _on_commit_requested(self, widget, message, amend, sign_off):
         """Handle commit request from commit area."""
         self.do_commit(message, amend, sign_off)
+
+    def _on_amend_toggled(self, widget, amend_enabled):
+        """Handle amend checkbox toggle."""
+        if amend_enabled:
+            # Load last commit message when entering amend mode
+            last_msg = self._git.get_last_commit_message()
+            self._commit_area.set_message(last_msg)
+            # Show files from last commit in staged area
+            last_commit_files = self._git.get_last_commit_files()
+            # Merge with currently staged files
+            _, currently_staged = self._git.get_status()
+            # Combine: last commit files + any new staged files not in last commit
+            staged_paths = {f.path for f in last_commit_files}
+            for f in currently_staged:
+                if f.path not in staged_paths:
+                    last_commit_files.append(f)
+            self._staged_list.set_files(last_commit_files)
+            # Enable commit button for amend even if no staged changes
+            self._commit_area.set_commit_sensitive(True)
+        else:
+            # Clear message when leaving amend mode
+            self._commit_area.clear_message()
+            # Rescan to restore normal view
+            self.rescan()
 
     def do_commit(self, message=None, amend=None, sign_off=None):
         """Perform a commit."""

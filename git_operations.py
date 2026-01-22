@@ -279,6 +279,36 @@ class GitOperations:
         except Exception:
             return ''
 
+    def get_last_commit_files(self) -> list[FileChange]:
+        """Get list of files changed in the last commit."""
+        if not self.repo:
+            return []
+        try:
+            commit = self.repo.head.commit
+            parent = commit.parents[0] if commit.parents else None
+
+            files = []
+            if parent:
+                # Compare with parent commit
+                diffs = parent.diff(commit)
+            else:
+                # Initial commit - all files are new
+                diffs = commit.diff(None, R=True)
+
+            for diff in diffs:
+                status = self._diff_to_status(diff)
+                path = diff.b_path if diff.b_path else diff.a_path
+                old_path = diff.a_path if diff.renamed else None
+                files.append(FileChange(
+                    path=path,
+                    status=status,
+                    staged=True,
+                    old_path=old_path
+                ))
+            return files
+        except Exception:
+            return []
+
     def push(self, progress_callback: Optional[Callable[[str], None]] = None) -> tuple[bool, str]:
         """Push to remote.
 
