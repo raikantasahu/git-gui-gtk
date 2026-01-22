@@ -1,7 +1,6 @@
 """Utility functions for Git GUI GTK."""
 
 import os
-import subprocess
 from typing import Optional
 
 
@@ -20,36 +19,6 @@ def find_git_root(path: str) -> Optional[str]:
             return current
         current = os.path.dirname(current)
     return None
-
-
-def run_git_command(args: list[str], cwd: Optional[str] = None) -> tuple[bool, str]:
-    """Run a git command and return the result.
-
-    Args:
-        args: Git command arguments (without 'git' prefix)
-        cwd: Working directory
-
-    Returns:
-        Tuple of (success, output/error)
-    """
-    try:
-        result = subprocess.run(
-            ['git'] + args,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        if result.returncode == 0:
-            return True, result.stdout.strip()
-        else:
-            return False, result.stderr.strip()
-    except subprocess.TimeoutExpired:
-        return False, 'Command timed out'
-    except FileNotFoundError:
-        return False, 'Git not found'
-    except Exception as e:
-        return False, str(e)
 
 
 def get_file_icon_name(filename: str) -> str:
