@@ -4,6 +4,8 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+from config import UIConfig
+
 
 def show_create_branch_dialog(parent, repo):
     """Show dialog to create a new branch.
@@ -20,6 +22,7 @@ def show_create_branch_dialog(parent, repo):
         transient_for=parent,
         modal=True
     )
+    dialog.set_default_size(UIConfig.DIALOG_WIDTH, -1)
     dialog.add_buttons(
         Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
         'Create', Gtk.ResponseType.OK

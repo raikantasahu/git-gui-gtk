@@ -5,6 +5,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 import gitops
+from config import UIConfig
 
 
 def show_reset_branch_dialog(parent, repo):
@@ -23,6 +24,7 @@ def show_reset_branch_dialog(parent, repo):
         transient_for=parent,
         modal=True
     )
+    dialog.set_default_size(UIConfig.DIALOG_WIDTH, -1)
     dialog.add_buttons(
         Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
         'Reset', Gtk.ResponseType.OK
