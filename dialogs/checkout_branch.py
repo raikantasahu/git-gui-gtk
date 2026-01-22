@@ -16,18 +16,24 @@ def show_checkout_branch_dialog(parent, repo):
         repo: Git repository object
 
     Returns:
-        Branch name to checkout or None if cancelled
+        Branch/tag name to checkout or None if cancelled
     """
-    branches = gitops.get_branches(repo)
-    if not branches:
+    # Fetch data
+    local_branches = gitops.get_branches(repo)
+    tracking_branches = gitops.get_tracking_branches(repo)
+    tags = gitops.get_tags(repo)
+    current_branch = gitops.get_current_branch(repo)
+
+    # Check if there's anything to checkout
+    if not local_branches and not tracking_branches and not tags:
         return None
 
     dialog = Gtk.Dialog(
-        title='Checkout Branch',
+        title='Checkout',
         transient_for=parent,
         modal=True
     )
-    dialog.set_default_size(UIConfig.DIALOG_WIDTH, -1)
+    dialog.set_default_size(UIConfig.DIALOG_WIDTH, 400)
     dialog.add_buttons(
         Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
         'Checkout', Gtk.ResponseType.OK
@@ -40,27 +46,87 @@ def show_checkout_branch_dialog(parent, repo):
     content.set_margin_bottom(12)
     content.set_spacing(6)
 
-    label = Gtk.Label(label='Select branch:')
-    label.set_xalign(0)
-    content.pack_start(label, False, False, 0)
+    # Type selection label
+    type_label = Gtk.Label(label='Checkout:')
+    type_label.set_xalign(0)
+    content.pack_start(type_label, False, False, 0)
 
-    combo = Gtk.ComboBoxText()
-    current_branch = gitops.get_current_branch(repo)
-    active_index = 0
-    for i, branch in enumerate(branches):
-        combo.append_text(branch)
-        if branch == current_branch:
-            active_index = i
-    combo.set_active(active_index)
-    content.pack_start(combo, False, False, 0)
+    # Radio buttons for type selection
+    radio_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+    local_radio = Gtk.RadioButton.new_with_label(None, 'Local Branch')
+    tracking_radio = Gtk.RadioButton.new_with_label_from_widget(local_radio, 'Tracking Branch')
+    tag_radio = Gtk.RadioButton.new_with_label_from_widget(local_radio, 'Tag')
+    radio_box.pack_start(local_radio, False, False, 0)
+    radio_box.pack_start(tracking_radio, False, False, 0)
+    radio_box.pack_start(tag_radio, False, False, 0)
+    content.pack_start(radio_box, False, False, 0)
+
+    # ListBox for selection in a scrolled window
+    scrolled = Gtk.ScrolledWindow()
+    scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    scrolled.set_vexpand(True)
+
+    listbox = Gtk.ListBox()
+    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    scrolled.add(listbox)
+    content.pack_start(scrolled, True, True, 0)
+
+    def populate_listbox(items, default_item=None):
+        """Populate the listbox with items."""
+        # Remove all existing rows
+        for child in listbox.get_children():
+            listbox.remove(child)
+
+        default_row = None
+        for item in items:
+            row = Gtk.ListBoxRow()
+            label = Gtk.Label(label=item)
+            label.set_xalign(0)
+            label.set_margin_start(6)
+            label.set_margin_end(6)
+            label.set_margin_top(4)
+            label.set_margin_bottom(4)
+            row.add(label)
+            row.item_name = item
+            listbox.add(row)
+            if item == default_item:
+                default_row = row
+
+        listbox.show_all()
+
+        # Select default row
+        if default_row:
+            listbox.select_row(default_row)
+        elif items:
+            listbox.select_row(listbox.get_row_at_index(0))
+
+    def on_type_changed(radio):
+        """Update listbox when type selection changes."""
+        if not radio.get_active():
+            return
+
+        if local_radio.get_active():
+            populate_listbox(local_branches, current_branch)
+        elif tracking_radio.get_active():
+            populate_listbox(tracking_branches)
+        elif tag_radio.get_active():
+            populate_listbox(tags)
+
+    local_radio.connect('toggled', on_type_changed)
+    tracking_radio.connect('toggled', on_type_changed)
+    tag_radio.connect('toggled', on_type_changed)
+
+    # Initialize with local branches
+    populate_listbox(local_branches, current_branch)
 
     dialog.set_default_response(Gtk.ResponseType.OK)
     dialog.show_all()
 
     response = dialog.run()
-    selected_branch = combo.get_active_text()
+    selected_row = listbox.get_selected_row()
+    selected = selected_row.item_name if selected_row else None
     dialog.destroy()
 
-    if response == Gtk.ResponseType.OK and selected_branch:
-        return selected_branch
+    if response == Gtk.ResponseType.OK and selected:
+        return selected
     return None
