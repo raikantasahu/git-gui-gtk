@@ -114,7 +114,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._commit_area.set_size_request(-1, 180)
         self._commit_area.connect('commit-requested', self._on_commit_requested)
         self._commit_area.connect('push-requested', lambda w: self.do_push())
-        self._commit_area.connect('pull-requested', lambda w: self.do_pull())
         self._commit_area.connect('rescan-requested', lambda w: self.rescan())
         right_paned.pack2(self._commit_area, resize=False, shrink=False)
 

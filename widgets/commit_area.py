@@ -27,7 +27,6 @@ class CommitArea(Gtk.Box):
     __gsignals__ = {
         'commit-requested': (GObject.SignalFlags.RUN_FIRST, None, (str, bool, bool)),
         'push-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        'pull-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
         'rescan-requested': (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
@@ -107,15 +106,6 @@ class CommitArea(Gtk.Box):
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
         button_box.pack_start(spacer, True, True, 0)
-
-        # Pull button
-        pull_btn = Gtk.Button(label='Pull')
-        pull_icon = Gtk.Image.new_from_icon_name('go-down-symbolic', Gtk.IconSize.BUTTON)
-        pull_btn.set_image(pull_icon)
-        pull_btn.set_always_show_image(True)
-        pull_btn.set_tooltip_text('Pull from remote')
-        pull_btn.connect('clicked', lambda b: self.emit('pull-requested'))
-        button_box.pack_start(pull_btn, False, False, 0)
 
         # Push button
         push_btn = Gtk.Button(label='Push')
