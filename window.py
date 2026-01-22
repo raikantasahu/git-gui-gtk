@@ -6,7 +6,7 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gio, GLib
+from gi.repository import Gtk, Gdk, Gio, GLib
 
 from git_operations import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
@@ -164,6 +164,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         open_item.connect('activate', lambda w: self.show_open_dialog())
         repo_menu.append(open_item)
 
+        explore_item = Gtk.MenuItem(label='Explore Repository')
+        explore_item.connect('activate', lambda w: self._explore_repository())
+        repo_menu.append(explore_item)
+
         rescan_item = Gtk.MenuItem(label='Rescan')
         rescan_item.connect('activate', lambda w: self.rescan())
         repo_menu.append(rescan_item)
@@ -278,6 +282,17 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._diff_view.clear()
         self._branch_label.set_text('')
         self._commit_area.set_commit_sensitive(False)
+
+    def _explore_repository(self):
+        """Open repository root in default file browser."""
+        if not self._git.repo_path:
+            self._set_status('No repository open')
+            return
+        try:
+            import subprocess
+            subprocess.Popen(['xdg-open', self._git.repo_path])
+        except Exception as e:
+            self._show_error('Explore Repository', f'Failed to open file browser: {e}')
 
     def _update_branch_label(self):
         """Update the branch indicator."""
