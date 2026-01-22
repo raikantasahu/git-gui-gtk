@@ -269,6 +269,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         help_item = Gtk.MenuItem(label='Help')
         help_item.set_submenu(help_menu)
 
+        ssh_key_item = Gtk.MenuItem(label='Show SSH Key')
+        ssh_key_item.connect('activate', lambda w: self._show_ssh_key())
+        help_menu.append(ssh_key_item)
+
+        help_menu.append(Gtk.SeparatorMenuItem())
+
         about_item = Gtk.MenuItem(label='About')
         about_item.connect('activate', lambda w: self._show_about())
         help_menu.append(about_item)
@@ -276,6 +282,85 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         menubar.append(help_item)
 
         return menubar
+
+    def _show_ssh_key(self):
+        """Show the user's SSH public key."""
+        ssh_key = None
+        ssh_key_path = None
+
+        # Check common SSH key locations
+        ssh_dir = os.path.expanduser('~/.ssh')
+        key_files = ['id_ed25519.pub', 'id_rsa.pub', 'id_ecdsa.pub', 'id_dsa.pub']
+
+        for key_file in key_files:
+            path = os.path.join(ssh_dir, key_file)
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r') as f:
+                        ssh_key = f.read().strip()
+                    ssh_key_path = path
+                    break
+                except Exception:
+                    continue
+
+        dialog = Gtk.Dialog(
+            title='Your OpenSSH Public Key',
+            transient_for=self,
+            modal=True
+        )
+        dialog.set_default_size(600, 200)
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        if ssh_key:
+            path_label = Gtk.Label(label=f'Public key from: {ssh_key_path}')
+            path_label.set_xalign(0)
+            content.pack_start(path_label, False, False, 0)
+
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scrolled.set_vexpand(True)
+
+            text_view = Gtk.TextView()
+            text_view.set_editable(False)
+            text_view.set_wrap_mode(Gtk.WrapMode.CHAR)
+            text_view.set_monospace(True)
+            text_view.get_buffer().set_text(ssh_key)
+            scrolled.add(text_view)
+            content.pack_start(scrolled, True, True, 0)
+        else:
+            no_key_label = Gtk.Label(label='No SSH public key found.\n\nGenerate one with:\n  ssh-keygen -t ed25519 -C "your_email@example.com"')
+            no_key_label.set_xalign(0)
+            content.pack_start(no_key_label, True, True, 0)
+
+        button_box = dialog.get_action_area()
+        button_box.set_layout(Gtk.ButtonBoxStyle.END)
+        button_box.set_margin_end(12)
+        button_box.set_margin_bottom(12)
+
+        if ssh_key:
+            copy_btn = dialog.add_button('Copy to Clipboard', Gtk.ResponseType.APPLY)
+        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
+
+        dialog.show_all()
+
+        # Handle responses in a loop so Copy doesn't close the dialog
+        while True:
+            response = dialog.run()
+            if response == Gtk.ResponseType.APPLY and ssh_key:
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text(ssh_key, -1)
+                clipboard.store()
+                self._set_status('SSH key copied to clipboard')
+            else:
+                break
+
+        dialog.destroy()
 
     def _show_about(self):
         """Show the about dialog."""
