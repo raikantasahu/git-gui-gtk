@@ -1,6 +1,43 @@
 """Action definitions for Git GUI GTK."""
 
-from gi.repository import Gio
+from gi.repository import Gio, Gtk, Gdk
+
+
+def get_shortcut_label(accel):
+    """Convert an accelerator string to a human-readable label.
+
+    Args:
+        accel: Accelerator string like '<Ctrl>q'
+
+    Returns:
+        Human-readable string like 'Ctrl+Q'
+    """
+    if not accel:
+        return ''
+    key, mods = Gtk.accelerator_parse(accel)
+    return Gtk.accelerator_get_label(key, mods)
+
+
+def get_action_shortcut(action_name):
+    """Get the shortcut label for an action by name.
+
+    Args:
+        action_name: Action name without prefix (e.g., 'open', 'quit')
+
+    Returns:
+        Human-readable shortcut string or empty string
+    """
+    # Check app actions
+    for name, shortcuts, _ in APP_ACTIONS:
+        if name == action_name and shortcuts:
+            return get_shortcut_label(shortcuts[0])
+
+    # Check window actions
+    for name, shortcuts, _ in WINDOW_ACTIONS:
+        if name == action_name and shortcuts:
+            return get_shortcut_label(shortcuts[0])
+
+    return ''
 
 
 # Action definitions: (name, shortcuts, handler_method_name)
@@ -16,24 +53,25 @@ APP_ACTIONS = [
 WINDOW_ACTIONS = [
     # Repository
     ('open', ['<Ctrl>o'], 'show_open_dialog'),
-    ('rescan', ['<Ctrl>r', 'F5'], 'rescan'),
-    ('explore', None, '_explore_repository'),
+    ('rescan', ['F5', '<Ctrl>r'], 'rescan'),
+    ('explore', None, 'explore_repository'),
 
     # Staging
-    ('stage-selected', ['<Ctrl>s'], '_stage_selected'),
-    ('unstage-selected', ['<Ctrl>u'], '_unstage_selected'),
+    ('stage-selected', ['<Ctrl>s'], 'stage_selected'),
+    ('unstage-selected', ['<Ctrl>u'], 'unstage_selected'),
     ('stage-all', ['<Ctrl><Shift>a'], 'stage_all'),
     ('unstage-all', ['<Ctrl><Shift>u'], 'unstage_all'),
-    ('revert-selected', None, '_revert_selected'),
+    ('revert-selected', None, 'revert_selected'),
 
     # Commit
-    ('commit', ['<Ctrl>Return'], 'do_commit'),
+    ('commit', ['<Ctrl>Return'], 'commit'),
     ('amend', None, 'toggle_amend'),
 
     # Remote
-    ('push', ['<Ctrl>p'], 'do_push'),
-    ('pull', ['<Ctrl><Shift>p'], 'do_pull'),
-    ('fetch', None, 'do_fetch'),
+    ('push', ['<Ctrl>p'], 'push'),
+    ('pull', ['<Ctrl><Shift>p'], 'pull'),
+    ('fetch', None, 'fetch'),
+    ('add-remote', ['<Ctrl>a'], 'show_add_remote_dialog'),
 ]
 
 

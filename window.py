@@ -10,6 +10,34 @@ from gi.repository import Gtk, Gdk, GLib
 
 from git_operations import GitOperations, FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
+from actions import get_action_shortcut
+
+
+def _create_menu_item(label, action_name=None):
+    """Create a menu item with optional keyboard shortcut display.
+
+    Args:
+        label: Menu item label
+        action_name: Action name to look up shortcut (optional)
+
+    Returns:
+        Gtk.MenuItem with shortcut shown if available
+    """
+    shortcut = get_action_shortcut(action_name) if action_name else ''
+    if shortcut:
+        # Use a box to show label and shortcut
+        item = Gtk.MenuItem()
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        label_widget = Gtk.Label(label=label)
+        label_widget.set_xalign(0)
+        box.pack_start(label_widget, True, True, 0)
+        shortcut_label = Gtk.Label(label=shortcut)
+        shortcut_label.get_style_context().add_class('dim-label')
+        box.pack_end(shortcut_label, False, False, 0)
+        item.add(box)
+    else:
+        item = Gtk.MenuItem(label=label)
+    return item
 
 
 class GitGuiWindow(Gtk.ApplicationWindow):
@@ -112,7 +140,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._commit_area = CommitArea()
         self._commit_area.set_size_request(-1, 180)
         self._commit_area.connect('commit-requested', self._on_commit_requested)
-        self._commit_area.connect('push-requested', lambda w: self.do_push())
+        self._commit_area.connect('push-requested', lambda w: self.push())
         self._commit_area.connect('rescan-requested', lambda w: self.rescan())
         self._commit_area.connect('amend-toggled', self._on_amend_toggled)
         right_paned.pack2(self._commit_area, resize=False, shrink=False)
@@ -142,47 +170,47 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         repo_item = Gtk.MenuItem(label='Repository')
         repo_item.set_submenu(repo_menu)
 
-        open_item = Gtk.MenuItem(label='Open...')
+        open_item = _create_menu_item('Open...', 'open')
         open_item.connect('activate', lambda w: self.show_open_dialog())
         repo_menu.append(open_item)
 
-        explore_item = Gtk.MenuItem(label='Explore Repository')
-        explore_item.connect('activate', lambda w: self._explore_repository())
+        explore_item = _create_menu_item('Explore Repository', 'explore')
+        explore_item.connect('activate', lambda w: self.explore_repository())
         repo_menu.append(explore_item)
 
-        rescan_item = Gtk.MenuItem(label='Rescan')
+        rescan_item = _create_menu_item('Rescan', 'rescan')
         rescan_item.connect('activate', lambda w: self.rescan())
         repo_menu.append(rescan_item)
 
         repo_menu.append(Gtk.SeparatorMenuItem())
 
         # Visualize section
-        self._visualize_branch_item = Gtk.MenuItem(label='Visualize main\'s History')
+        self._visualize_branch_item = _create_menu_item('Visualize main\'s History')
         self._visualize_branch_item.connect('activate', lambda w: self._visualize_branch_history())
         repo_menu.append(self._visualize_branch_item)
 
-        visualize_all_item = Gtk.MenuItem(label='Visualize All Branches History')
+        visualize_all_item = _create_menu_item('Visualize All Branches History')
         visualize_all_item.connect('activate', lambda w: self._visualize_all_history())
         repo_menu.append(visualize_all_item)
 
         repo_menu.append(Gtk.SeparatorMenuItem())
 
         # Database section
-        db_stats_item = Gtk.MenuItem(label='Database Statistics')
+        db_stats_item = _create_menu_item('Database Statistics')
         db_stats_item.connect('activate', lambda w: self._show_database_statistics())
         repo_menu.append(db_stats_item)
 
-        db_compress_item = Gtk.MenuItem(label='Compress Database')
+        db_compress_item = _create_menu_item('Compress Database')
         db_compress_item.connect('activate', lambda w: self._compress_database())
         repo_menu.append(db_compress_item)
 
-        db_verify_item = Gtk.MenuItem(label='Verify Database')
+        db_verify_item = _create_menu_item('Verify Database')
         db_verify_item.connect('activate', lambda w: self._verify_database())
         repo_menu.append(db_verify_item)
 
         repo_menu.append(Gtk.SeparatorMenuItem())
 
-        quit_item = Gtk.MenuItem(label='Quit')
+        quit_item = _create_menu_item('Quit', 'quit')
         quit_item.connect('activate', lambda w: self.get_application().quit())
         repo_menu.append(quit_item)
 
@@ -193,25 +221,25 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         branch_item = Gtk.MenuItem(label='Branch')
         branch_item.set_submenu(branch_menu)
 
-        create_branch_item = Gtk.MenuItem(label='Create...')
+        create_branch_item = _create_menu_item('Create...')
         create_branch_item.connect('activate', lambda w: self._show_create_branch_dialog())
         branch_menu.append(create_branch_item)
 
-        checkout_branch_item = Gtk.MenuItem(label='Checkout...')
+        checkout_branch_item = _create_menu_item('Checkout...')
         checkout_branch_item.connect('activate', lambda w: self._show_checkout_branch_dialog())
         branch_menu.append(checkout_branch_item)
 
-        rename_branch_item = Gtk.MenuItem(label='Rename...')
+        rename_branch_item = _create_menu_item('Rename...')
         rename_branch_item.connect('activate', lambda w: self._show_rename_branch_dialog())
         branch_menu.append(rename_branch_item)
 
-        delete_branch_item = Gtk.MenuItem(label='Delete...')
+        delete_branch_item = _create_menu_item('Delete...')
         delete_branch_item.connect('activate', lambda w: self._show_delete_branch_dialog())
         branch_menu.append(delete_branch_item)
 
         branch_menu.append(Gtk.SeparatorMenuItem())
 
-        reset_branch_item = Gtk.MenuItem(label='Reset...')
+        reset_branch_item = _create_menu_item('Reset...')
         reset_branch_item.connect('activate', lambda w: self._show_reset_branch_dialog())
         branch_menu.append(reset_branch_item)
 
@@ -222,11 +250,11 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         merge_item = Gtk.MenuItem(label='Merge')
         merge_item.set_submenu(merge_menu)
 
-        merge_branch_item = Gtk.MenuItem(label='Merge...')
+        merge_branch_item = _create_menu_item('Merge...')
         merge_branch_item.connect('activate', lambda w: self._show_merge_dialog())
         merge_menu.append(merge_branch_item)
 
-        rebase_item = Gtk.MenuItem(label='Rebase...')
+        rebase_item = _create_menu_item('Rebase...')
         rebase_item.connect('activate', lambda w: self._show_rebase_dialog())
         merge_menu.append(rebase_item)
 
@@ -237,26 +265,26 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         remote_item = Gtk.MenuItem(label='Remote')
         remote_item.set_submenu(remote_menu)
 
-        list_remotes_item = Gtk.MenuItem(label='List')
+        list_remotes_item = _create_menu_item('List')
         list_remotes_item.connect('activate', lambda w: self._show_list_remotes_dialog())
         remote_menu.append(list_remotes_item)
 
-        add_remote_item = Gtk.MenuItem(label='Add...')
-        add_remote_item.connect('activate', lambda w: self._show_add_remote_dialog())
+        add_remote_item = _create_menu_item('Add...', 'add-remote')
+        add_remote_item.connect('activate', lambda w: self.show_add_remote_dialog())
         remote_menu.append(add_remote_item)
 
         remote_menu.append(Gtk.SeparatorMenuItem())
 
-        fetch_item = Gtk.MenuItem(label='Fetch')
-        fetch_item.connect('activate', lambda w: self.do_fetch())
+        fetch_item = _create_menu_item('Fetch', 'fetch')
+        fetch_item.connect('activate', lambda w: self.fetch())
         remote_menu.append(fetch_item)
 
-        pull_item = Gtk.MenuItem(label='Pull')
-        pull_item.connect('activate', lambda w: self.do_pull())
+        pull_item = _create_menu_item('Pull', 'pull')
+        pull_item.connect('activate', lambda w: self.pull())
         remote_menu.append(pull_item)
 
-        push_item = Gtk.MenuItem(label='Push')
-        push_item.connect('activate', lambda w: self.do_push())
+        push_item = _create_menu_item('Push', 'push')
+        push_item.connect('activate', lambda w: self.push())
         remote_menu.append(push_item)
 
         menubar.append(remote_item)
@@ -266,17 +294,17 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         help_item = Gtk.MenuItem(label='Help')
         help_item.set_submenu(help_menu)
 
-        git_docs_item = Gtk.MenuItem(label='Online Git Documentation')
+        git_docs_item = _create_menu_item('Online Git Documentation')
         git_docs_item.connect('activate', lambda w: self._open_git_documentation())
         help_menu.append(git_docs_item)
 
-        ssh_key_item = Gtk.MenuItem(label='Show SSH Key')
+        ssh_key_item = _create_menu_item('Show SSH Key')
         ssh_key_item.connect('activate', lambda w: self._show_ssh_key())
         help_menu.append(ssh_key_item)
 
         help_menu.append(Gtk.SeparatorMenuItem())
 
-        about_item = Gtk.MenuItem(label='About')
+        about_item = _create_menu_item('About', 'about')
         about_item.connect('activate', lambda w: self._show_about())
         help_menu.append(about_item)
 
@@ -521,7 +549,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._branch_label.set_text('')
         self._commit_area.set_commit_sensitive(False)
 
-    def _explore_repository(self):
+    def explore_repository(self):
         """Open repository root in default file browser."""
         if not self._git.repo_path:
             self._set_status('No repository open')
@@ -820,19 +848,19 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         else:
             self._set_status('Failed to unstage: ' + file_change.path)
 
-    def _stage_selected(self):
+    def stage_selected(self):
         """Stage the currently selected file."""
         file_change = self._unstaged_list.get_selected_file()
         if file_change:
             self._stage_file(file_change)
 
-    def _unstage_selected(self):
+    def unstage_selected(self):
         """Unstage the currently selected file."""
         file_change = self._staged_list.get_selected_file()
         if file_change:
             self._unstage_file(file_change)
 
-    def _revert_selected(self):
+    def revert_selected(self):
         """Revert the currently selected file."""
         file_change = self._unstaged_list.get_selected_file()
         if file_change:
@@ -873,7 +901,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _on_commit_requested(self, widget, message, amend, sign_off):
         """Handle commit request from commit area."""
-        self.do_commit(message, amend, sign_off)
+        self.commit(message, amend, sign_off)
 
     def _on_amend_toggled(self, widget, amend_enabled):
         """Handle amend checkbox toggle."""
@@ -899,7 +927,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             # Rescan to restore normal view
             self.rescan()
 
-    def do_commit(self, message=None, amend=None, sign_off=None):
+    def commit(self, message=None, amend=None, sign_off=None):
         """Perform a commit."""
         if message is None:
             message = self._commit_area.get_message()
@@ -931,16 +959,16 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             last_msg = self._git.get_last_commit_message()
             self._commit_area.set_message(last_msg)
 
-    def do_push(self):
+    def push(self):
         """Push to remote."""
         self._set_status('Pushing...')
 
-        def do_push_async():
+        def push_async():
             success, message = self._git.push()
             GLib.idle_add(self._on_push_complete, success, message)
 
         import threading
-        thread = threading.Thread(target=do_push_async)
+        thread = threading.Thread(target=push_async)
         thread.daemon = True
         thread.start()
 
@@ -950,16 +978,16 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         if not success:
             self._show_error('Push Error', message)
 
-    def do_pull(self):
+    def pull(self):
         """Pull from remote."""
         self._set_status('Pulling...')
 
-        def do_pull_async():
+        def pull_async():
             success, message = self._git.pull()
             GLib.idle_add(self._on_pull_complete, success, message)
 
         import threading
-        thread = threading.Thread(target=do_pull_async)
+        thread = threading.Thread(target=pull_async)
         thread.daemon = True
         thread.start()
 
@@ -971,16 +999,16 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         else:
             self._show_error('Pull Error', message)
 
-    def do_fetch(self):
+    def fetch(self):
         """Fetch from remote."""
         self._set_status('Fetching...')
 
-        def do_fetch_async():
+        def fetch_async():
             success, message = self._git.fetch()
             GLib.idle_add(self._on_fetch_complete, success, message)
 
         import threading
-        thread = threading.Thread(target=do_fetch_async)
+        thread = threading.Thread(target=fetch_async)
         thread.daemon = True
         thread.start()
 
@@ -1303,7 +1331,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         dialog.run()
         dialog.destroy()
 
-    def _show_add_remote_dialog(self):
+    def show_add_remote_dialog(self):
         """Show dialog to add a new remote."""
         dialog = Gtk.Dialog(
             title='Add Remote',
