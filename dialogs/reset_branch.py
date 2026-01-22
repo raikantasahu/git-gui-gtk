@@ -4,13 +4,15 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+import gitops
 
-def show_reset_branch_dialog(parent, git_ops):
+
+def show_reset_branch_dialog(parent, repo):
     """Show dialog to reset current branch.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
 
     Returns:
         Tuple of (target, mode) or None if cancelled
@@ -37,7 +39,7 @@ def show_reset_branch_dialog(parent, git_ops):
     content.set_margin_bottom(12)
     content.set_spacing(6)
 
-    current_branch = git_ops.get_current_branch()
+    current_branch = gitops.get_current_branch(repo)
     info_label = Gtk.Label(label=f'Reset branch: {current_branch}')
     info_label.set_xalign(0)
     content.pack_start(info_label, False, False, 0)

@@ -4,19 +4,21 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+import gitops
 
-def show_delete_branch_dialog(parent, git_ops):
+
+def show_delete_branch_dialog(parent, repo):
     """Show dialog to delete a branch.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
 
     Returns:
         Tuple of (branch_name, force) or None if cancelled
     """
-    branches = git_ops.get_branches()
-    current_branch = git_ops.get_current_branch()
+    branches = gitops.get_branches(repo)
+    current_branch = gitops.get_current_branch(repo)
     # Filter out current branch
     branches = [b for b in branches if b != current_branch]
 

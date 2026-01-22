@@ -4,32 +4,33 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+import gitops
 from config import UIConfig
 
 
-def _get_default_remote_index(git_ops, remotes):
+def _get_default_remote_index(repo, remotes):
     """Get the index of the default remote (tracking remote or first)."""
-    tracking_remote = git_ops.get_tracking_remote()
+    tracking_remote = gitops.get_tracking_remote(repo)
     if tracking_remote and tracking_remote in remotes:
         return remotes.index(tracking_remote)
     return 0
 
 
-def show_pull_dialog(parent, git_ops):
+def show_pull_dialog(parent, repo):
     """Show dialog to pull from a remote.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
 
     Returns:
         Tuple of (remote, branch, ff_only, rebase) or None if cancelled
     """
-    remotes = git_ops.get_remotes()
+    remotes = gitops.get_remotes(repo)
     if not remotes:
         return None
 
-    current_branch = git_ops.get_current_branch()
+    current_branch = gitops.get_current_branch(repo)
 
     dialog = Gtk.Dialog(
         title='Pull',
@@ -57,7 +58,7 @@ def show_pull_dialog(parent, git_ops):
     remote_combo = Gtk.ComboBoxText()
     for remote in remotes:
         remote_combo.append_text(remote)
-    remote_combo.set_active(_get_default_remote_index(git_ops, remotes))
+    remote_combo.set_active(_get_default_remote_index(repo, remotes))
     content.pack_start(remote_combo, False, False, 0)
 
     # Branch selection
@@ -73,7 +74,7 @@ def show_pull_dialog(parent, git_ops):
         branch_combo.remove_all()
         selected_remote = combo.get_active_text()
         if selected_remote:
-            branches = git_ops.get_remote_branches(selected_remote)
+            branches = gitops.get_remote_branches(repo, selected_remote)
             default_index = 0
             for i, branch in enumerate(branches):
                 branch_combo.append_text(branch)

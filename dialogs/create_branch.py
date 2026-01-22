@@ -5,12 +5,12 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 
-def show_create_branch_dialog(parent, git_ops):
+def show_create_branch_dialog(parent, repo):
     """Show dialog to create a new branch.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object (unused, kept for consistency)
 
     Returns:
         Tuple of (branch_name, checkout) or None if cancelled

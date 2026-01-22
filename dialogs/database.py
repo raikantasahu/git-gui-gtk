@@ -5,19 +5,20 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 
 import threading
+import gitops
 
 
-def show_database_statistics_dialog(parent, git_ops):
+def show_database_statistics_dialog(parent, repo):
     """Show git database statistics dialog.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
 
     Returns:
         True if successful, False otherwise
     """
-    success, output = git_ops.get_database_statistics()
+    success, output = gitops.get_database_statistics(repo)
     if success:
         dialog = Gtk.MessageDialog(
             transient_for=parent,
@@ -38,12 +39,12 @@ def show_database_statistics_dialog(parent, git_ops):
     return False
 
 
-def show_compress_database_dialog(parent, git_ops, on_complete=None):
+def show_compress_database_dialog(parent, repo, on_complete=None):
     """Show compress database dialog with progress.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
         on_complete: Optional callback(success, message) when complete
     """
     dialog = Gtk.Dialog(
@@ -95,7 +96,7 @@ def show_compress_database_dialog(parent, git_ops, on_complete=None):
             on_complete(success, message)
 
     def do_compress():
-        success, message = git_ops.compress_database()
+        success, message = gitops.compress_database(repo)
         GLib.idle_add(on_compress_complete, success, message)
 
     thread = threading.Thread(target=do_compress)
@@ -103,12 +104,12 @@ def show_compress_database_dialog(parent, git_ops, on_complete=None):
     thread.start()
 
 
-def show_verify_database_dialog(parent, git_ops, on_complete=None):
+def show_verify_database_dialog(parent, repo, on_complete=None):
     """Show verify database dialog with progress and result.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
         on_complete: Optional callback(success, message) when complete
     """
     dialog = Gtk.Dialog(
@@ -160,7 +161,7 @@ def show_verify_database_dialog(parent, git_ops, on_complete=None):
             on_complete(success, message)
 
     def do_verify():
-        success, message = git_ops.verify_database()
+        success, message = gitops.verify_database(repo)
         GLib.idle_add(on_verify_complete, success, message)
 
     thread = threading.Thread(target=do_verify)

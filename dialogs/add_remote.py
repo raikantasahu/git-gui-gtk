@@ -7,12 +7,12 @@ from gi.repository import Gtk
 from config import UIConfig
 
 
-def show_add_remote_dialog(parent, git_ops):
+def show_add_remote_dialog(parent, repo):
     """Show dialog to add a new remote.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object (unused, kept for consistency)
 
     Returns:
         Tuple of (name, url, fetch_immediately) or None if cancelled

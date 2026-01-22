@@ -4,17 +4,18 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+import gitops
 from config import UIConfig
 
 
-def show_list_remotes_dialog(parent, git_ops):
+def show_list_remotes_dialog(parent, repo):
     """Show dialog listing all remotes.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
     """
-    remotes = git_ops.get_remotes_with_urls()
+    remotes = gitops.get_remotes_with_urls(repo)
 
     dialog = Gtk.Dialog(
         title='Remotes',

@@ -4,18 +4,20 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
+import gitops
 
-def show_rename_branch_dialog(parent, git_ops):
+
+def show_rename_branch_dialog(parent, repo):
     """Show dialog to rename a branch.
 
     Args:
         parent: Parent window
-        git_ops: GitOperations instance
+        repo: Git repository object
 
     Returns:
         Tuple of (old_name, new_name) or None if cancelled
     """
-    branches = git_ops.get_branches()
+    branches = gitops.get_branches(repo)
     if not branches:
         return None
 
@@ -41,7 +43,7 @@ def show_rename_branch_dialog(parent, git_ops):
     content.pack_start(label1, False, False, 0)
 
     combo = Gtk.ComboBoxText()
-    current_branch = git_ops.get_current_branch()
+    current_branch = gitops.get_current_branch(repo)
     active_index = 0
     for i, branch in enumerate(branches):
         combo.append_text(branch)

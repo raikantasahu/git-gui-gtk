@@ -8,7 +8,8 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, GLib
 
-from gitops import GitOperations, FileChange, FileStatus
+import gitops
+from gitops import FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
 from actions import get_action_shortcut
 import dialogs
@@ -50,7 +51,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self.set_title('Git GUI')
         self.set_default_size(1200, 800)
 
-        self._git = GitOperations()
+        self._repo = None
+        self._repo_path = None
         self._current_file = None
 
         self._setup_ui()
@@ -336,8 +338,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def open_repository(self, path):
         """Open a git repository."""
-        if self._git.open_repository(path):
-            self.set_title('Git GUI - ' + self._git.get_repo_name())
+        self._repo, self._repo_path = gitops.open_repository(path)
+        if self._repo:
+            self.set_title('Git GUI - ' + gitops.get_repo_name(self._repo_path))
             self._update_branch_label()
             self.rescan()
             self._set_status('Opened repository: ' + path)
@@ -355,24 +358,24 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def explore_repository(self):
         """Open repository root in default file browser."""
-        if not self._git.repo_path:
+        if not self._repo_path:
             self._set_status('No repository open')
             return
         try:
             import subprocess
-            subprocess.Popen(['xdg-open', self._git.repo_path])
+            subprocess.Popen(['xdg-open', self._repo_path])
         except Exception as e:
             self._show_error('Explore Repository', f'Failed to open file browser: {e}')
 
     def _visualize_branch_history(self):
         """Open gitk to visualize current branch history."""
-        if not self._git.repo_path:
+        if not self._repo_path:
             self._set_status('No repository open')
             return
         try:
             import subprocess
-            branch = self._git.get_current_branch()
-            subprocess.Popen(['gitk', branch], cwd=self._git.repo_path)
+            branch = gitops.get_current_branch(self._repo)
+            subprocess.Popen(['gitk', branch], cwd=self._repo_path)
         except FileNotFoundError:
             self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
         except Exception as e:
@@ -380,12 +383,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _visualize_all_history(self):
         """Open gitk to visualize all branches history."""
-        if not self._git.repo_path:
+        if not self._repo_path:
             self._set_status('No repository open')
             return
         try:
             import subprocess
-            subprocess.Popen(['gitk', '--all'], cwd=self._git.repo_path)
+            subprocess.Popen(['gitk', '--all'], cwd=self._repo_path)
         except FileNotFoundError:
             self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
         except Exception as e:
@@ -393,30 +396,30 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_database_statistics(self):
         """Show git database statistics."""
-        if not self._git.repo_path:
+        if not self._repo_path:
             self._set_status('No repository open')
             return
-        dialogs.show_database_statistics_dialog(self, self._git)
+        dialogs.show_database_statistics_dialog(self, self._repo)
 
     def _compress_database(self):
         """Compress git database (git gc)."""
-        if not self._git.repo_path:
+        if not self._repo_path:
             self._set_status('No repository open')
             return
         self._set_status('Compressing database...')
         dialogs.show_compress_database_dialog(
-            self, self._git,
+            self, self._repo,
             on_complete=lambda success, msg: self._set_status(msg)
         )
 
     def _verify_database(self):
         """Verify git database (git fsck)."""
-        if not self._git.repo_path:
+        if not self._repo_path:
             self._set_status('No repository open')
             return
         self._set_status('Verifying database...')
         dialogs.show_verify_database_dialog(
-            self, self._git,
+            self, self._repo,
             on_complete=lambda success, msg: self._set_status(
                 'Database verification completed' if success else 'Database verification found issues'
             )
@@ -424,7 +427,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _update_branch_label(self):
         """Update the branch indicator and related menu items."""
-        branch = self._git.get_current_branch()
+        branch = gitops.get_current_branch(self._repo)
         self._branch_label.set_text('  ' + branch if branch else '')
         # Update visualize menu item
         if branch:
@@ -432,10 +435,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def rescan(self):
         """Rescan the repository for changes."""
-        if not self._git.is_valid():
+        if not self._repo is not None:
             return
 
-        unstaged, staged = self._git.get_status()
+        unstaged, staged = gitops.get_status(self._repo)
         self._unstaged_list.set_files(unstaged)
         self._staged_list.set_files(staged)
 
@@ -507,13 +510,13 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         dialog.destroy()
 
         if response == Gtk.ResponseType.OK:
-            success, message = self._git.revert_file(file_change.path)
+            success, message = gitops.revert_file(self._repo,file_change.path)
             self._set_status(message)
             self.rescan()
 
     def _show_diff(self, file_change, staged):
         """Show diff for a file."""
-        diff = self._git.get_diff(file_change.path, staged=staged)
+        diff = gitops.get_diff(self._repo, self._repo_path,file_change.path, staged=staged)
         status = self._get_file_status_text(file_change, staged)
         self._diff_view.set_diff(diff, file_change.path, status)
 
@@ -535,7 +538,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _stage_file(self, file_change):
         """Stage a single file."""
-        if self._git.stage_file(file_change.path):
+        if gitops.stage_file(self._repo,file_change.path):
             self._set_status('Staged: ' + file_change.path)
             self.rescan()
         else:
@@ -543,7 +546,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _unstage_file(self, file_change):
         """Unstage a single file."""
-        if self._git.unstage_file(file_change.path):
+        if gitops.unstage_file(self._repo,file_change.path):
             self._set_status('Unstaged: ' + file_change.path)
             self.rescan()
         else:
@@ -580,13 +583,13 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             dialog.destroy()
 
             if response == Gtk.ResponseType.OK:
-                success, message = self._git.revert_file(file_change.path)
+                success, message = gitops.revert_file(self._repo,file_change.path)
                 self._set_status(message)
                 self.rescan()
 
     def stage_all(self):
         """Stage all unstaged files."""
-        if self._git.stage_all():
+        if gitops.stage_all(self._repo):
             self._set_status('Staged all changes')
             self.rescan()
         else:
@@ -594,7 +597,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def unstage_all(self):
         """Unstage all staged files."""
-        if self._git.unstage_all():
+        if gitops.unstage_all(self._repo):
             self._set_status('Unstaged all changes')
             self.rescan()
         else:
@@ -608,12 +611,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         """Handle amend checkbox toggle."""
         if amend_enabled:
             # Load last commit message when entering amend mode
-            last_msg = self._git.get_last_commit_message()
+            last_msg = gitops.get_last_commit_message(self._repo)
             self._commit_area.set_message(last_msg)
             # Show files from last commit in staged area
-            last_commit_files = self._git.get_last_commit_files()
+            last_commit_files = gitops.get_last_commit_files(self._repo)
             # Merge with currently staged files
-            _, currently_staged = self._git.get_status()
+            _, currently_staged = gitops.get_status(self._repo)
             # Combine: last commit files + any new staged files not in last commit
             staged_paths = {f.path for f in last_commit_files}
             for f in currently_staged:
@@ -641,7 +644,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._show_error('Commit Error', 'Please enter a commit message.')
             return
 
-        success, result_msg = self._git.commit(message, amend=amend, sign_off=sign_off)
+        success, result_msg = gitops.commit(self._repo,message, amend=amend, sign_off=sign_off)
         if success:
             self._set_status(result_msg)
             self._commit_area.clear_message()
@@ -657,12 +660,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         if not current:
             # Loading amend mode, get last commit message
-            last_msg = self._git.get_last_commit_message()
+            last_msg = gitops.get_last_commit_message(self._repo)
             self._commit_area.set_message(last_msg)
 
     def show_push_dialog(self):
         """Show dialog to push to a remote."""
-        result = dialogs.show_push_dialog(self, self._git)
+        result = dialogs.show_push_dialog(self, self._repo)
         if result:
             remote, branch, force, tags = result
             self._do_push(remote, branch, force, tags)
@@ -673,7 +676,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._set_status(f'Pushing to {branch_display}...')
 
         def push_async():
-            success, message = self._git.push(remote_name, branch_name, force, tags)
+            success, message = gitops.push(self._repo,remote_name, branch_name, force, tags)
             GLib.idle_add(self._on_push_complete, success, message)
 
         import threading
@@ -689,7 +692,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_pull_dialog(self):
         """Show dialog to pull from a remote."""
-        result = dialogs.show_pull_dialog(self, self._git)
+        result = dialogs.show_pull_dialog(self, self._repo)
         if result:
             remote, branch, ff_only, rebase = result
             self._do_pull(remote, branch, ff_only, rebase)
@@ -700,7 +703,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._set_status(f'Pulling from {branch_display}...')
 
         def pull_async():
-            success, message = self._git.pull(remote_name, branch_name, ff_only, rebase)
+            success, message = gitops.pull(self._repo,remote_name, branch_name, ff_only, rebase)
             GLib.idle_add(self._on_pull_complete, success, message)
 
         import threading
@@ -718,7 +721,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_fetch_dialog(self):
         """Show dialog to fetch from a remote."""
-        result = dialogs.show_fetch_dialog(self, self._git)
+        result = dialogs.show_fetch_dialog(self, self._repo)
         if result:
             self._do_fetch(result)
 
@@ -727,7 +730,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._set_status(f'Fetching from {remote_name}...')
 
         def fetch_async():
-            success, message = self._git.fetch(remote_name)
+            success, message = gitops.fetch(self._repo,remote_name)
             GLib.idle_add(self._on_fetch_complete, success, message)
 
         import threading
@@ -783,10 +786,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_create_branch_dialog(self):
         """Show dialog to create a new branch."""
-        result = dialogs.show_create_branch_dialog(self, self._git)
+        result = dialogs.show_create_branch_dialog(self, self._repo)
         if result:
             branch_name, checkout = result
-            success, message = self._git.create_branch(branch_name, checkout=checkout)
+            success, message = gitops.create_branch(self._repo,branch_name, checkout=checkout)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -795,9 +798,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_checkout_branch_dialog(self):
         """Show dialog to checkout a branch."""
-        result = dialogs.show_checkout_branch_dialog(self, self._git)
+        result = dialogs.show_checkout_branch_dialog(self, self._repo)
         if result:
-            success, message = self._git.checkout_branch(result)
+            success, message = gitops.checkout_branch(self._repo,result)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -807,10 +810,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_rename_branch_dialog(self):
         """Show dialog to rename a branch."""
-        result = dialogs.show_rename_branch_dialog(self, self._git)
+        result = dialogs.show_rename_branch_dialog(self, self._repo)
         if result:
             old_name, new_name = result
-            success, message = self._git.rename_branch(old_name, new_name)
+            success, message = gitops.rename_branch(self._repo,old_name, new_name)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -819,24 +822,24 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_delete_branch_dialog(self):
         """Show dialog to delete a branch."""
-        result = dialogs.show_delete_branch_dialog(self, self._git)
+        result = dialogs.show_delete_branch_dialog(self, self._repo)
         if result:
             branch_name, force = result
-            success, message = self._git.delete_branch(branch_name, force=force)
+            success, message = gitops.delete_branch(self._repo,branch_name, force=force)
             self._set_status(message)
             if not success:
                 self._show_error('Delete Branch Error', message)
 
     def _show_list_remotes_dialog(self):
         """Show dialog listing all remotes."""
-        dialogs.show_list_remotes_dialog(self, self._git)
+        dialogs.show_list_remotes_dialog(self, self._repo)
 
     def show_add_remote_dialog(self):
         """Show dialog to add a new remote."""
-        result = dialogs.show_add_remote_dialog(self, self._git)
+        result = dialogs.show_add_remote_dialog(self, self._repo)
         if result:
             name, url, fetch_after = result
-            success, message = self._git.add_remote(name, url)
+            success, message = gitops.add_remote(self._repo,name, url)
             self._set_status(message)
             if not success:
                 self._show_error('Add Remote Error', message)
@@ -845,29 +848,29 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_rename_remote_dialog(self):
         """Show dialog to rename a remote."""
-        result = dialogs.show_rename_remote_dialog(self, self._git)
+        result = dialogs.show_rename_remote_dialog(self, self._repo)
         if result:
             old_name, new_name = result
-            success, message = self._git.rename_remote(old_name, new_name)
+            success, message = gitops.rename_remote(self._repo,old_name, new_name)
             self._set_status(message)
             if not success:
                 self._show_error('Rename Remote Error', message)
 
     def show_delete_remote_dialog(self):
         """Show dialog to delete a remote."""
-        result = dialogs.show_delete_remote_dialog(self, self._git)
+        result = dialogs.show_delete_remote_dialog(self, self._repo)
         if result:
-            success, message = self._git.delete_remote(result)
+            success, message = gitops.delete_remote(self._repo,result)
             self._set_status(message)
             if not success:
                 self._show_error('Delete Remote Error', message)
 
     def _show_reset_branch_dialog(self):
         """Show dialog to reset current branch."""
-        result = dialogs.show_reset_branch_dialog(self, self._git)
+        result = dialogs.show_reset_branch_dialog(self, self._repo)
         if result:
             target, mode = result
-            success, message = self._git.reset_branch(target, mode=mode)
+            success, message = gitops.reset_branch(self._repo,target, mode=mode)
             self._set_status(message)
             if success:
                 self.rescan()
@@ -876,10 +879,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_merge_dialog(self):
         """Show dialog to merge a branch."""
-        result = dialogs.show_merge_dialog(self, self._git)
+        result = dialogs.show_merge_dialog(self, self._repo)
         if result:
             branch, no_ff, squash = result
-            success, message = self._git.merge_branch(branch, no_ff=no_ff, squash=squash)
+            success, message = gitops.merge_branch(self._repo,branch, no_ff=no_ff, squash=squash)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -888,9 +891,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_rebase_dialog(self):
         """Show dialog to rebase current branch."""
-        result = dialogs.show_rebase_dialog(self, self._git)
+        result = dialogs.show_rebase_dialog(self, self._repo)
         if result:
-            success, message = self._git.rebase_branch(result)
+            success, message = gitops.rebase_branch(self._repo,result)
             self._set_status(message)
             if success:
                 self._update_branch_label()
@@ -899,6 +902,6 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def show_open_dialog(self):
         """Show dialog to open a repository."""
-        result = dialogs.show_open_repository_dialog(self, self._git.repo_path)
+        result = dialogs.show_open_repository_dialog(self, self._repo_path)
         if result:
             self.open_repository(result)
