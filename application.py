@@ -1,13 +1,19 @@
 """GTK Application class for Git GUI."""
 
+import os
+
 import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gio, GLib
+from gi.repository import Gtk, Gio, GLib, GdkPixbuf
 
 from window import GitGuiWindow
 from actions import setup_app_actions, setup_window_actions
+
+# Get the icon path relative to this file
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+_ICON_PATH = os.path.join(_APP_DIR, 'icons', 'git-gui-gtk.svg')
 
 
 class GitGuiApplication(Gtk.Application):
@@ -25,6 +31,10 @@ class GitGuiApplication(Gtk.Application):
         """Called when application starts."""
         Gtk.Application.do_startup(self)
         setup_app_actions(self)
+
+        # Set default icon for all windows
+        if os.path.exists(_ICON_PATH):
+            Gtk.Window.set_default_icon_from_file(_ICON_PATH)
 
     def do_activate(self):
         """Called when application is activated."""
@@ -53,9 +63,18 @@ class GitGuiApplication(Gtk.Application):
             program_name='Git GUI GTK',
             version='1.0.0',
             website='https://github.com/raikantasahu/git-gui-gtk',
-            copyright='© 2024 Git GUI GTK Contributors',
-            license_type=Gtk.License.GPL_3_0,
+            copyright='© 2026 Raikanta Sahu',
+            license_type=Gtk.License.MIT_X11,
             comments='A modern GTK3 replacement for git-gui'
         )
+
+        # Set logo from icon file
+        if os.path.exists(_ICON_PATH):
+            try:
+                logo = GdkPixbuf.Pixbuf.new_from_file_at_size(_ICON_PATH, 64, 64)
+                about.set_logo(logo)
+            except Exception:
+                pass
+
         about.run()
         about.destroy()
