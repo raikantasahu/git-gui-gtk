@@ -28,55 +28,41 @@ A modern GTK3 replacement for the classic `git-gui` tool. Provides a graphical i
 
 ## Requirements
 
-### System Dependencies
+This application is designed to run with your system Python and system packages. No virtual environment or conda is required.
 
-- Python 3.10+
-- GTK 3.0
-- GtkSourceView 4
-
-On Debian/Ubuntu:
+### Debian/Ubuntu
 
 ```bash
-sudo apt install python3 python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-gtksource-4
+sudo apt install python3 python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-gtksource-4 python3-git
 ```
 
-On Fedora:
+### Fedora
 
 ```bash
-sudo dnf install python3 python3-gobject gtk3 gtksourceview4
+sudo dnf install python3 python3-gobject gtk3 gtksourceview4 python3-GitPython
 ```
 
-On Arch Linux:
+### Arch Linux
 
 ```bash
-sudo pacman -S python python-gobject gtk3 gtksourceview4
-```
-
-### Python Dependencies
-
-```bash
-pip install -r requirements.txt
+sudo pacman -S python python-gobject gtk3 gtksourceview4 python-gitpython
 ```
 
 ## Installation
 
-1. Clone the repository:
+1. Install system dependencies (see Requirements above)
+
+2. Clone the repository:
 
    ```bash
    git clone https://github.com/raikantasahu/git-gui-gtk.git
    cd git-gui-gtk
    ```
 
-2. Install Python dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
 3. Run the application:
 
    ```bash
-   python main.py
+   ./main.py
    ```
 
 ## Usage
@@ -87,7 +73,7 @@ Run from within a Git repository:
 
 ```bash
 cd /path/to/your/repo
-python /path/to/git-gui-gtk/main.py
+/path/to/git-gui-gtk/main.py
 ```
 
 Or open a repository via the menu: **Repository > Open...**

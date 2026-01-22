@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """Git GUI GTK - A modern GTK3 replacement for git-gui."""
 
 import sys
