@@ -460,6 +460,41 @@ class GitOperations:
         except GitCommandError as e:
             return False, str(e)
 
+    def merge_branch(self, branch: str, no_ff: bool = False, squash: bool = False) -> tuple[bool, str]:
+        """Merge a branch into the current branch.
+
+        Args:
+            branch: Branch to merge
+            no_ff: If True, always create a merge commit
+            squash: If True, squash all commits into one
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            args = [branch]
+            if no_ff:
+                args.insert(0, '--no-ff')
+            if squash:
+                args.insert(0, '--squash')
+            self.repo.git.merge(*args)
+            return True, f'Merged {branch} successfully'
+        except GitCommandError as e:
+            return False, str(e)
+
+    def rebase_branch(self, onto: str) -> tuple[bool, str]:
+        """Rebase current branch onto another branch.
+
+        Args:
+            onto: Branch to rebase onto
+        """
+        if not self.repo:
+            return False, 'No repository open'
+        try:
+            self.repo.git.rebase(onto)
+            return True, f'Rebased onto {onto} successfully'
+        except GitCommandError as e:
+            return False, str(e)
+
     def get_remotes(self) -> list[str]:
         """Get list of remote names."""
         if not self.repo:

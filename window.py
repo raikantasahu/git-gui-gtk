@@ -235,6 +235,21 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         menubar.append(branch_item)
 
+        # Merge menu
+        merge_menu = Gtk.Menu()
+        merge_item = Gtk.MenuItem(label='Merge')
+        merge_item.set_submenu(merge_menu)
+
+        merge_branch_item = Gtk.MenuItem(label='Merge...')
+        merge_branch_item.connect('activate', lambda w: self._show_merge_dialog())
+        merge_menu.append(merge_branch_item)
+
+        rebase_item = Gtk.MenuItem(label='Rebase...')
+        rebase_item.connect('activate', lambda w: self._show_rebase_dialog())
+        merge_menu.append(rebase_item)
+
+        menubar.append(merge_item)
+
         # Remote menu
         remote_menu = Gtk.Menu()
         remote_item = Gtk.MenuItem(label='Remote')
@@ -1003,10 +1018,15 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             transient_for=self,
             modal=True,
             message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
+            buttons=Gtk.ButtonsType.NONE,
             text=title
         )
         dialog.format_secondary_text(message)
+        button_box = dialog.get_action_area()
+        button_box.set_layout(Gtk.ButtonBoxStyle.END)
+        button_box.set_margin_end(12)
+        button_box.set_margin_bottom(12)
+        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
         dialog.run()
         dialog.destroy()
 
@@ -1405,6 +1425,135 @@ class GitGuiWindow(Gtk.ApplicationWindow):
                 self.rescan()
             else:
                 self._show_error('Reset Branch Error', message)
+
+    def _show_merge_dialog(self):
+        """Show dialog to merge a branch."""
+        branches = self._git.get_branches()
+        current_branch = self._git.get_current_branch()
+        # Filter out current branch
+        branches = [b for b in branches if b != current_branch]
+
+        if not branches:
+            self._show_error('Merge', 'No other branches available to merge.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Merge Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Merge', Gtk.ResponseType.OK
+        )
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        info_label = Gtk.Label(label=f'Merge into: {current_branch}')
+        info_label.set_xalign(0)
+        content.pack_start(info_label, False, False, 0)
+
+        label = Gtk.Label(label='Select branch to merge:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        for branch in branches:
+            combo.append_text(branch)
+        combo.set_active(0)
+        content.pack_start(combo, False, False, 0)
+
+        # Options
+        no_ff_check = Gtk.CheckButton(label='No fast-forward (always create merge commit)')
+        content.pack_start(no_ff_check, False, False, 0)
+
+        squash_check = Gtk.CheckButton(label='Squash commits')
+        content.pack_start(squash_check, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_branch = combo.get_active_text()
+        no_ff = no_ff_check.get_active()
+        squash = squash_check.get_active()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_branch:
+            success, message = self._git.merge_branch(selected_branch, no_ff=no_ff, squash=squash)
+            self._set_status(message)
+            if success:
+                self._update_branch_label()
+                self.rescan()
+            else:
+                self._show_error('Merge Error', message)
+
+    def _show_rebase_dialog(self):
+        """Show dialog to rebase current branch."""
+        branches = self._git.get_branches()
+        current_branch = self._git.get_current_branch()
+        # Filter out current branch
+        branches = [b for b in branches if b != current_branch]
+
+        if not branches:
+            self._show_error('Rebase', 'No other branches available to rebase onto.')
+            return
+
+        dialog = Gtk.Dialog(
+            title='Rebase Branch',
+            transient_for=self,
+            modal=True
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            'Rebase', Gtk.ResponseType.OK
+        )
+
+        # Make rebase button look cautionary
+        rebase_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        rebase_btn.get_style_context().add_class('suggested-action')
+
+        content = dialog.get_content_area()
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_spacing(6)
+
+        info_label = Gtk.Label(label=f'Rebase branch: {current_branch}')
+        info_label.set_xalign(0)
+        content.pack_start(info_label, False, False, 0)
+
+        label = Gtk.Label(label='Rebase onto:')
+        label.set_xalign(0)
+        content.pack_start(label, False, False, 0)
+
+        combo = Gtk.ComboBoxText()
+        for branch in branches:
+            combo.append_text(branch)
+        combo.set_active(0)
+        content.pack_start(combo, False, False, 0)
+
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.show_all()
+
+        response = dialog.run()
+        selected_branch = combo.get_active_text()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and selected_branch:
+            success, message = self._git.rebase_branch(selected_branch)
+            self._set_status(message)
+            if success:
+                self._update_branch_label()
+                self.rescan()
+            else:
+                self._show_error('Rebase Error', message)
 
     def show_open_dialog(self):
         """Show dialog to open a repository."""
