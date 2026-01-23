@@ -54,6 +54,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._repo = None
         self._repo_path = None
         self._current_file = None
+        self._current_diff_file = None
+        self._current_diff_staged = False
 
         self._setup_ui()
 
@@ -137,6 +139,11 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         # Diff view (top)
         self._diff_view = DiffView()
         self._diff_view.set_vexpand(True)
+        self._diff_view.connect('stage-hunk', self._on_stage_hunk)
+        self._diff_view.connect('stage-line', self._on_stage_line)
+        self._diff_view.connect('revert-hunk', self._on_revert_hunk)
+        self._diff_view.connect('revert-line', self._on_revert_line)
+        self._diff_view.connect('context-changed', self._on_context_changed)
         right_paned.pack1(self._diff_view, resize=True, shrink=False)
 
         # Commit area (bottom)
@@ -355,6 +362,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._diff_view.clear()
         self._branch_label.set_text('')
         self._commit_area.set_commit_sensitive(False)
+        self._current_diff_file = None
 
     def explore_repository(self):
         """Open repository root in default file browser."""
@@ -454,6 +462,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             if self._current_file.path not in all_files:
                 self._diff_view.clear()
                 self._current_file = None
+                self._current_diff_file = None
 
     def _on_unstaged_file_selected(self, widget, file_change):
         """Handle unstaged file selection."""
@@ -514,11 +523,98 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status(message)
             self.rescan()
 
+    def _on_stage_hunk(self, widget, file_path, line):
+        """Handle stage hunk request from diff view."""
+        success, message = gitops.stage_hunk(self._repo, file_path, line)
+        self._set_status(message)
+        if success:
+            self.rescan()
+
+    def _on_stage_line(self, widget, file_path, line):
+        """Handle stage line request from diff view."""
+        success, message = gitops.stage_line(self._repo, file_path, line)
+        self._set_status(message)
+        if success:
+            self.rescan()
+
+    def _on_revert_hunk(self, widget, file_path, line):
+        """Handle revert hunk request from diff view."""
+        # Show confirmation dialog
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.NONE,
+            text='Revert Hunk?'
+        )
+        dialog.format_secondary_text(
+            f'This will discard changes in the selected hunk from:\n{file_path}\n\n'
+            'This action cannot be undone.'
+        )
+        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
+        dialog.add_button('Revert Hunk', Gtk.ResponseType.OK)
+
+        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        revert_btn.get_style_context().add_class('destructive-action')
+
+        response = dialog.run()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK:
+            success, message = gitops.revert_hunk(self._repo, file_path, line)
+            self._set_status(message)
+            if success:
+                self.rescan()
+
+    def _on_revert_line(self, widget, file_path, line):
+        """Handle revert line request from diff view."""
+        # Show confirmation dialog
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.NONE,
+            text='Revert Line?'
+        )
+        dialog.format_secondary_text(
+            f'This will discard the selected line change from:\n{file_path}\n\n'
+            'This action cannot be undone.'
+        )
+        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
+        dialog.add_button('Revert Line', Gtk.ResponseType.OK)
+
+        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        revert_btn.get_style_context().add_class('destructive-action')
+
+        response = dialog.run()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK:
+            success, message = gitops.revert_line(self._repo, file_path, line)
+            self._set_status(message)
+            if success:
+                self.rescan()
+
+    def _on_context_changed(self, widget, context_lines):
+        """Handle context lines change from diff view."""
+        if hasattr(self, '_current_diff_file') and self._current_diff_file:
+            self._show_diff(self._current_diff_file, self._current_diff_staged)
+            self._set_status(f'Context lines: {context_lines}')
+
     def _show_diff(self, file_change, staged):
         """Show diff for a file."""
-        diff = gitops.get_diff(self._repo, self._repo_path,file_change.path, staged=staged)
+        context_lines = self._diff_view.get_context_lines()
+        diff = gitops.get_diff(
+            self._repo, self._repo_path, file_change.path,
+            staged=staged, context_lines=context_lines
+        )
         status = self._get_file_status_text(file_change, staged)
         self._diff_view.set_diff(diff, file_change.path, status)
+        is_untracked = file_change.status == FileStatus.UNTRACKED
+        self._diff_view.set_file_info(file_change.path, staged, is_untracked)
+        # Store current file info for context refresh
+        self._current_diff_file = file_change
+        self._current_diff_staged = staged
 
     def _get_file_status_text(self, file_change, staged):
         """Get descriptive status text for a file."""

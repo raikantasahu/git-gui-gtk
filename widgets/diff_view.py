@@ -5,7 +5,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GtkSource', '4')
 
-from gi.repository import Gtk, Gdk, GtkSource
+from gi.repository import Gtk, Gdk, GtkSource, GObject
 
 from config import UIConfig
 
@@ -25,8 +25,23 @@ class DiffView(Gtk.Box):
 
     __gtype_name__ = 'DiffView'
 
+    __gsignals__ = {
+        'stage-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'stage-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'revert-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'revert-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'context-changed': (GObject.SignalFlags.RUN_FIRST, None, (int,)),
+    }
+
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Track current file and state
+        self._current_file = None
+        self._is_staged = False
+        self._is_untracked = False
+        self._context_lines = 3
+        self._clicked_line = 0
 
         # Apply CSS
         css_provider = Gtk.CssProvider()
@@ -77,6 +92,12 @@ class DiffView(Gtk.Box):
         self._source_view.set_wrap_mode(Gtk.WrapMode.NONE)
         self._source_view.set_tab_width(4)
 
+        # Connect right-click for context menu
+        self._source_view.connect('button-press-event', self._on_button_press)
+
+        # Create context menu
+        self._create_context_menu()
+
         scrolled.add(self._source_view)
         self.pack_start(scrolled, True, True, 0)
 
@@ -121,6 +142,9 @@ class DiffView(Gtk.Box):
         self._buffer.set_text('')
         self._file_label.set_text('')
         self._status_label.set_text('')
+        self._current_file = None
+        self._is_staged = False
+        self._is_untracked = False
 
     def get_diff_text(self):
         """Get the current diff text."""
@@ -134,3 +158,133 @@ class DiffView(Gtk.Box):
         scheme = style_manager.get_scheme(scheme_id)
         if scheme:
             self._buffer.set_style_scheme(scheme)
+
+    def _create_context_menu(self):
+        """Create the right-click context menu."""
+        self._context_menu = Gtk.Menu()
+
+        # Stage Hunk for Commit
+        self._stage_hunk_item = Gtk.MenuItem(label='Stage Hunk for Commit')
+        self._stage_hunk_item.connect('activate', self._on_stage_hunk)
+        self._context_menu.append(self._stage_hunk_item)
+
+        # Stage Line for Commit
+        self._stage_line_item = Gtk.MenuItem(label='Stage Line for Commit')
+        self._stage_line_item.connect('activate', self._on_stage_line)
+        self._context_menu.append(self._stage_line_item)
+
+        # Separator
+        self._context_menu.append(Gtk.SeparatorMenuItem())
+
+        # Revert Hunk
+        self._revert_hunk_item = Gtk.MenuItem(label='Revert Hunk')
+        self._revert_hunk_item.connect('activate', self._on_revert_hunk)
+        self._context_menu.append(self._revert_hunk_item)
+
+        # Revert Line
+        self._revert_line_item = Gtk.MenuItem(label='Revert Line')
+        self._revert_line_item.connect('activate', self._on_revert_line)
+        self._context_menu.append(self._revert_line_item)
+
+        # Separator
+        self._context_menu.append(Gtk.SeparatorMenuItem())
+
+        # Show More Context
+        self._more_context_item = Gtk.MenuItem(label='Show More Context')
+        self._more_context_item.connect('activate', self._on_more_context)
+        self._context_menu.append(self._more_context_item)
+
+        # Show Less Context
+        self._less_context_item = Gtk.MenuItem(label='Show Less Context')
+        self._less_context_item.connect('activate', self._on_less_context)
+        self._context_menu.append(self._less_context_item)
+
+        self._context_menu.show_all()
+
+    def _on_button_press(self, widget, event):
+        """Handle button press events."""
+        if event.button == 3:  # Right click
+            # Get line number at click position
+            x, y = self._source_view.window_to_buffer_coords(
+                Gtk.TextWindowType.TEXT, int(event.x), int(event.y)
+            )
+            iter_at_click = self._source_view.get_iter_at_location(x, y)
+            if iter_at_click[0]:  # iter_at_click is (success, iter)
+                self._clicked_line = iter_at_click[1].get_line()
+            else:
+                self._clicked_line = 0
+
+            self._update_context_menu_sensitivity()
+            self._context_menu.popup_at_pointer(event)
+            return True
+        return False
+
+    def _update_context_menu_sensitivity(self):
+        """Update menu item sensitivity based on current state."""
+        has_file = self._current_file is not None
+        has_diff = len(self.get_diff_text().strip()) > 0
+
+        # Stage/revert items only available for unstaged, tracked files
+        can_stage = has_file and has_diff and not self._is_staged and not self._is_untracked
+        self._stage_hunk_item.set_sensitive(can_stage)
+        self._stage_line_item.set_sensitive(can_stage)
+
+        # Revert items only available for unstaged, tracked files
+        can_revert = has_file and has_diff and not self._is_staged and not self._is_untracked
+        self._revert_hunk_item.set_sensitive(can_revert)
+        self._revert_line_item.set_sensitive(can_revert)
+
+        # Context items only available for tracked files with diffs
+        can_change_context = has_file and has_diff and not self._is_untracked
+        self._more_context_item.set_sensitive(can_change_context)
+        self._less_context_item.set_sensitive(can_change_context and self._context_lines > 0)
+
+    def _on_stage_hunk(self, widget):
+        """Handle Stage Hunk action."""
+        if self._current_file:
+            self.emit('stage-hunk', self._current_file, self._clicked_line)
+
+    def _on_stage_line(self, widget):
+        """Handle Stage Line action."""
+        if self._current_file:
+            self.emit('stage-line', self._current_file, self._clicked_line)
+
+    def _on_revert_hunk(self, widget):
+        """Handle Revert Hunk action."""
+        if self._current_file:
+            self.emit('revert-hunk', self._current_file, self._clicked_line)
+
+    def _on_revert_line(self, widget):
+        """Handle Revert Line action."""
+        if self._current_file:
+            self.emit('revert-line', self._current_file, self._clicked_line)
+
+    def _on_more_context(self, widget):
+        """Show more context lines in diff."""
+        old_context = self._context_lines
+        self._context_lines = min(self._context_lines + 3, 99)
+        if self._context_lines != old_context:
+            self.emit('context-changed', self._context_lines)
+
+    def _on_less_context(self, widget):
+        """Show less context lines in diff."""
+        old_context = self._context_lines
+        self._context_lines = max(self._context_lines - 3, 0)
+        if self._context_lines != old_context:
+            self.emit('context-changed', self._context_lines)
+
+    def get_context_lines(self):
+        """Get the current number of context lines."""
+        return self._context_lines
+
+    def set_file_info(self, file_path, is_staged, is_untracked=False):
+        """Set the current file information.
+
+        Args:
+            file_path: Path to the current file
+            is_staged: Whether the file is staged
+            is_untracked: Whether the file is untracked
+        """
+        self._current_file = file_path
+        self._is_staged = is_staged
+        self._is_untracked = is_untracked

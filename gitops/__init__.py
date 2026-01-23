@@ -11,6 +11,10 @@ from .stage_file import stage_file
 from .unstage_file import unstage_file
 from .stage_all import stage_all
 from .unstage_all import unstage_all
+from .stage_hunk import stage_hunk
+from .stage_line import stage_line
+from .revert_hunk import revert_hunk
+from .revert_line import revert_line
 from .commit import commit
 from .get_last_commit_message import get_last_commit_message
 from .get_last_commit_files import get_last_commit_files
@@ -56,6 +60,8 @@ __all__ = [
     'unstage_file',
     'stage_all',
     'unstage_all',
+    'stage_hunk',
+    'stage_line',
     # Commit
     'commit',
     'get_last_commit_message',
@@ -73,6 +79,8 @@ __all__ = [
     'delete_remote',
     # File operations
     'revert_file',
+    'revert_hunk',
+    'revert_line',
     # Branch operations
     'get_branches',
     'get_tracking_branches',

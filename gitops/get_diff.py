@@ -6,7 +6,13 @@ from typing import Optional
 from git import Repo, GitCommandError
 
 
-def get_diff(repo: Optional[Repo], repo_path: Optional[str], path: str, staged: bool = False) -> str:
+def get_diff(
+    repo: Optional[Repo],
+    repo_path: Optional[str],
+    path: str,
+    staged: bool = False,
+    context_lines: int = 3
+) -> str:
     """Get diff for a specific file.
 
     Args:
@@ -15,6 +21,7 @@ def get_diff(repo: Optional[Repo], repo_path: Optional[str], path: str, staged: 
         path: File path relative to repo root
         staged: If True, show staged diff (index vs HEAD)
                If False, show unstaged diff (working tree vs index)
+        context_lines: Number of context lines to show (default 3)
 
     Returns:
         Diff string or error message
@@ -23,9 +30,10 @@ def get_diff(repo: Optional[Repo], repo_path: Optional[str], path: str, staged: 
         return ''
 
     try:
+        context_arg = f'-U{context_lines}'
         if staged:
             # Staged: compare index to HEAD
-            diff = repo.git.diff('--cached', '--', path)
+            diff = repo.git.diff(context_arg, '--cached', '--', path)
         else:
             # Check if file is untracked
             if path in repo.untracked_files:
@@ -46,7 +54,7 @@ def get_diff(repo: Optional[Repo], repo_path: Optional[str], path: str, staged: 
                 return ''
             else:
                 # Unstaged: compare working tree to index
-                diff = repo.git.diff('--', path)
+                diff = repo.git.diff(context_arg, '--', path)
         return diff
     except GitCommandError as e:
         return f'Error getting diff: {e}'
