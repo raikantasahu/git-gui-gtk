@@ -1,6 +1,7 @@
 """Main application window."""
 
 import os
+from enum import Enum, auto
 
 import gi
 
@@ -8,7 +9,15 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, GLib
 
+
 import gitops
+
+
+class MessageType(Enum):
+    """Message types for status display."""
+    INFO = auto()
+    WARNING = auto()
+    ERROR = auto()
 from cache import RecentRepositoryList
 from gitops import FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
@@ -405,7 +414,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             RecentRepositoryList.add_recent(self._repo_path)
             self._update_recent_menu()
         else:
-            self._set_status('Not a git repository: ' + path)
+            self._set_status('Not a git repository: ' + path, MessageType.WARNING)
             self._clear_ui()
 
     def _clear_ui(self):
@@ -420,7 +429,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def explore_repository(self):
         """Open repository root in default file browser."""
         if not self._repo_path:
-            self._set_status('No repository open')
+            self._set_status('No repository open', MessageType.WARNING)
             return
         try:
             import subprocess
@@ -431,7 +440,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _visualize_branch_history(self):
         """Open gitk to visualize current branch history."""
         if not self._repo_path:
-            self._set_status('No repository open')
+            self._set_status('No repository open', MessageType.WARNING)
             return
         try:
             import subprocess
@@ -445,7 +454,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _visualize_all_history(self):
         """Open gitk to visualize all branches history."""
         if not self._repo_path:
-            self._set_status('No repository open')
+            self._set_status('No repository open', MessageType.WARNING)
             return
         try:
             import subprocess
@@ -458,25 +467,27 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _show_database_statistics(self):
         """Show git database statistics."""
         if not self._repo_path:
-            self._set_status('No repository open')
+            self._set_status('No repository open', MessageType.WARNING)
             return
         dialogs.show_database_statistics_dialog(self, self._repo)
 
     def _compress_database(self):
         """Compress git database (git gc)."""
         if not self._repo_path:
-            self._set_status('No repository open')
+            self._set_status('No repository open', MessageType.WARNING)
             return
         self._set_status('Compressing database...')
         dialogs.show_compress_database_dialog(
             self, self._repo,
-            on_complete=lambda success, msg: self._set_status(msg)
+            on_complete=lambda success, msg: self._set_status(
+                msg, MessageType.INFO if success else MessageType.ERROR
+            )
         )
 
     def _verify_database(self):
         """Verify git database (git fsck)."""
         if not self._repo_path:
-            self._set_status('No repository open')
+            self._set_status('No repository open', MessageType.WARNING)
             return
         self._set_status('Verifying database...')
         dialogs.show_verify_database_dialog(
@@ -705,7 +716,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status('Staged: ' + file_change.path)
             self.rescan()
         else:
-            self._set_status('Failed to stage: ' + file_change.path)
+            self._set_status('Failed to stage: ' + file_change.path, MessageType.ERROR)
 
     def _unstage_file(self, file_change):
         """Unstage a single file."""
@@ -713,7 +724,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status('Unstaged: ' + file_change.path)
             self.rescan()
         else:
-            self._set_status('Failed to unstage: ' + file_change.path)
+            self._set_status('Failed to unstage: ' + file_change.path, MessageType.ERROR)
 
     def stage_selected(self):
         """Stage the currently selected file."""
@@ -756,7 +767,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status('Staged all changes')
             self.rescan()
         else:
-            self._set_status('Failed to stage all changes')
+            self._set_status('Failed to stage all changes', MessageType.ERROR)
 
     def unstage_all(self):
         """Unstage all staged files."""
@@ -764,7 +775,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status('Unstaged all changes')
             self.rescan()
         else:
-            self._set_status('Failed to unstage all changes')
+            self._set_status('Failed to unstage all changes', MessageType.ERROR)
 
     def _on_commit_requested(self, widget, message, amend, sign_off):
         """Handle commit request from commit area."""
@@ -907,45 +918,70 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         if not success:
             self._show_error('Fetch Error', message)
 
-    def _set_status(self, message):
-        """Set status bar message."""
-        self._status_bar.set_text(message)
+    def _set_status(self, message, msg_type=MessageType.INFO):
+        """Set status bar message or show dialog for long messages.
+
+        Args:
+            message: The status message to display
+            msg_type: MessageType (INFO, WARNING, or ERROR)
+        """
+        # Maximum characters that fit reasonably in the status bar
+        MAX_STATUS_LENGTH = 100
+
+        if len(message) > MAX_STATUS_LENGTH:
+            # Show dialog for long messages
+            title_map = {
+                MessageType.INFO: 'Information',
+                MessageType.WARNING: 'Warning',
+                MessageType.ERROR: 'Error',
+            }
+            title = title_map.get(msg_type, 'Information')
+            self._show_message_dialog(title, message, msg_type)
+            # Show truncated message in status bar
+            truncated = message[:MAX_STATUS_LENGTH - 3] + '...'
+            self._status_bar.set_text(truncated)
+        else:
+            self._status_bar.set_text(message)
+
+    def _show_message_dialog(self, title, message, msg_type=MessageType.INFO):
+        """Show a message dialog based on message type.
+
+        Args:
+            title: Dialog title
+            message: The full message to display
+            msg_type: MessageType (INFO, WARNING, or ERROR)
+        """
+        type_map = {
+            MessageType.INFO: Gtk.MessageType.INFO,
+            MessageType.WARNING: Gtk.MessageType.WARNING,
+            MessageType.ERROR: Gtk.MessageType.ERROR,
+        }
+        gtk_type = type_map.get(msg_type, Gtk.MessageType.INFO)
+
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=gtk_type,
+            buttons=Gtk.ButtonsType.NONE,
+            text=title
+        )
+        dialog.format_secondary_text(message)
+        button_box = dialog.get_action_area()
+        button_box.set_layout(Gtk.ButtonBoxStyle.END)
+        button_box.set_margin_end(12)
+        button_box.set_margin_bottom(12)
+        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
+        dialog.run()
+        dialog.destroy()
 
     def _show_error(self, title, message):
         """Show an error dialog."""
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.NONE,
-            text=title
-        )
-        dialog.format_secondary_text(message)
-        button_box = dialog.get_action_area()
-        button_box.set_layout(Gtk.ButtonBoxStyle.END)
-        button_box.set_margin_end(12)
-        button_box.set_margin_bottom(12)
-        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-        dialog.run()
-        dialog.destroy()
+        self._show_message_dialog(title, message, MessageType.ERROR)
 
     def _show_status_dialog(self, title, message, success):
         """Show a status dialog for operation results."""
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.INFO if success else Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.NONE,
-            text=title
-        )
-        dialog.format_secondary_text(message)
-        button_box = dialog.get_action_area()
-        button_box.set_layout(Gtk.ButtonBoxStyle.END)
-        button_box.set_margin_end(12)
-        button_box.set_margin_bottom(12)
-        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-        dialog.run()
-        dialog.destroy()
+        msg_type = MessageType.INFO if success else MessageType.ERROR
+        self._show_message_dialog(title, message, msg_type)
 
     def _show_create_branch_dialog(self):
         """Show dialog to create a new branch."""
