@@ -194,6 +194,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         repo_menu.append(self._recent_menu_item)
         self._update_recent_menu()
 
+        repo_menu.append(Gtk.SeparatorMenuItem())
+
         explore_item = _create_menu_item('Explore Repository', 'explore')
         explore_item.connect('activate', lambda w: self.explore_repository())
         repo_menu.append(explore_item)
