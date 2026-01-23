@@ -28,6 +28,8 @@ class DiffView(Gtk.Box):
     __gsignals__ = {
         'stage-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'stage-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'unstage-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'unstage-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'revert-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'revert-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'context-changed': (GObject.SignalFlags.RUN_FIRST, None, (int,)),
@@ -224,10 +226,18 @@ class DiffView(Gtk.Box):
         has_file = self._current_file is not None
         has_diff = len(self.get_diff_text().strip()) > 0
 
-        # Stage/revert items only available for unstaged, tracked files
-        can_stage = has_file and has_diff and not self._is_staged and not self._is_untracked
-        self._stage_hunk_item.set_sensitive(can_stage)
-        self._stage_line_item.set_sensitive(can_stage)
+        # Stage/unstage items available for tracked files
+        can_stage_unstage = has_file and has_diff and not self._is_untracked
+        self._stage_hunk_item.set_sensitive(can_stage_unstage)
+        self._stage_line_item.set_sensitive(can_stage_unstage)
+
+        # Update labels based on staged state
+        if self._is_staged:
+            self._stage_hunk_item.set_label('Unstage Hunk from Commit')
+            self._stage_line_item.set_label('Unstage Line from Commit')
+        else:
+            self._stage_hunk_item.set_label('Stage Hunk for Commit')
+            self._stage_line_item.set_label('Stage Line for Commit')
 
         # Revert items only available for unstaged, tracked files
         can_revert = has_file and has_diff and not self._is_staged and not self._is_untracked
@@ -240,14 +250,20 @@ class DiffView(Gtk.Box):
         self._less_context_item.set_sensitive(can_change_context and self._context_lines > 0)
 
     def _on_stage_hunk(self, widget):
-        """Handle Stage Hunk action."""
+        """Handle Stage/Unstage Hunk action."""
         if self._current_file:
-            self.emit('stage-hunk', self._current_file, self._clicked_line)
+            if self._is_staged:
+                self.emit('unstage-hunk', self._current_file, self._clicked_line)
+            else:
+                self.emit('stage-hunk', self._current_file, self._clicked_line)
 
     def _on_stage_line(self, widget):
-        """Handle Stage Line action."""
+        """Handle Stage/Unstage Line action."""
         if self._current_file:
-            self.emit('stage-line', self._current_file, self._clicked_line)
+            if self._is_staged:
+                self.emit('unstage-line', self._current_file, self._clicked_line)
+            else:
+                self.emit('stage-line', self._current_file, self._clicked_line)
 
     def _on_revert_hunk(self, widget):
         """Handle Revert Hunk action."""

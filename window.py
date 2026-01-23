@@ -141,6 +141,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._diff_view.set_vexpand(True)
         self._diff_view.connect('stage-hunk', self._on_stage_hunk)
         self._diff_view.connect('stage-line', self._on_stage_line)
+        self._diff_view.connect('unstage-hunk', self._on_unstage_hunk)
+        self._diff_view.connect('unstage-line', self._on_unstage_line)
         self._diff_view.connect('revert-hunk', self._on_revert_hunk)
         self._diff_view.connect('revert-line', self._on_revert_line)
         self._diff_view.connect('context-changed', self._on_context_changed)
@@ -533,6 +535,20 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _on_stage_line(self, widget, file_path, line):
         """Handle stage line request from diff view."""
         success, message = gitops.stage_line(self._repo, file_path, line)
+        self._set_status(message)
+        if success:
+            self.rescan()
+
+    def _on_unstage_hunk(self, widget, file_path, line):
+        """Handle unstage hunk request from diff view."""
+        success, message = gitops.unstage_hunk(self._repo, file_path, line)
+        self._set_status(message)
+        if success:
+            self.rescan()
+
+    def _on_unstage_line(self, widget, file_path, line):
+        """Handle unstage line request from diff view."""
+        success, message = gitops.unstage_line(self._repo, file_path, line)
         self._set_status(message)
         if success:
             self.rescan()
