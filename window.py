@@ -9,6 +9,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
 
 import gitops
+from cache import RecentRepositoryList
 from gitops import FileChange, FileStatus
 from widgets import FileListWidget, DiffView, CommitArea
 from actions import get_action_shortcut
@@ -186,6 +187,13 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         open_item.connect('activate', lambda w: self.show_open_dialog())
         repo_menu.append(open_item)
 
+        # Open Recent submenu
+        self._recent_menu_item = Gtk.MenuItem(label='Open Recent...')
+        self._recent_submenu = Gtk.Menu()
+        self._recent_menu_item.set_submenu(self._recent_submenu)
+        repo_menu.append(self._recent_menu_item)
+        self._update_recent_menu()
+
         explore_item = _create_menu_item('Explore Repository', 'explore')
         explore_item.connect('activate', lambda w: self.explore_repository())
         repo_menu.append(explore_item)
@@ -332,6 +340,44 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         return menubar
 
+    def _update_recent_menu(self):
+        """Update the Open Recent submenu with recent repositories."""
+        # Clear existing items
+        for child in self._recent_submenu.get_children():
+            self._recent_submenu.remove(child)
+
+        recent = RecentRepositoryList.get_recent()
+
+        if not recent:
+            empty_item = Gtk.MenuItem(label='(No recent repositories)')
+            empty_item.set_sensitive(False)
+            self._recent_submenu.append(empty_item)
+        else:
+            for path in recent:
+                # Show just the directory name as label, full path as tooltip
+                label = os.path.basename(path) or path
+                item = Gtk.MenuItem(label=label)
+                item.set_tooltip_text(path)
+                item.connect('activate', self._on_recent_item_activated, path)
+                self._recent_submenu.append(item)
+
+            # Add separator and clear option
+            self._recent_submenu.append(Gtk.SeparatorMenuItem())
+            clear_item = Gtk.MenuItem(label='Clear Recent')
+            clear_item.connect('activate', self._on_clear_recent)
+            self._recent_submenu.append(clear_item)
+
+        self._recent_submenu.show_all()
+
+    def _on_recent_item_activated(self, widget, path):
+        """Handle click on a recent repository item."""
+        self.open_repository(path)
+
+    def _on_clear_recent(self, widget):
+        """Clear the recent repositories list."""
+        RecentRepositoryList.clear_recent()
+        self._update_recent_menu()
+
     def _open_git_documentation(self):
         """Open Git documentation in default web browser."""
         import webbrowser
@@ -353,6 +399,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._update_branch_label()
             self.rescan()
             self._set_status('Opened repository: ' + path)
+            # Add to recent repositories
+            RecentRepositoryList.add_recent(self._repo_path)
+            self._update_recent_menu()
         else:
             self._set_status('Not a git repository: ' + path)
             self._clear_ui()
