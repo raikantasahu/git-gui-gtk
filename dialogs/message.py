@@ -18,11 +18,20 @@ class MessageType(Enum):
         """Return a MessageType from a string name ('info', 'warning', 'error')."""
         return _NAME_TO_MSG_TYPE.get(name, MessageType.INFO)
 
+    def get_message_dialog_title(self):
+        """Return a dialog title for this message type."""
+        return _MSG_TYPE_TITLE.get(self, 'Information')
 
 _NAME_TO_MSG_TYPE = {
     'info': MessageType.INFO,
     'warning': MessageType.WARNING,
     'error': MessageType.ERROR,
+}
+
+_MSG_TYPE_TITLE = {
+    MessageType.INFO: 'Information',
+    MessageType.WARNING: 'Warning',
+    MessageType.ERROR: 'Error',
 }
 
 def show_message_dialog(parent, title, message, msg_type=MessageType.INFO):

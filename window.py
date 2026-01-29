@@ -850,18 +850,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     # --- Status and error display ---
 
-    _TITLE_MAP = {
-        MessageType.INFO: 'Information',
-        MessageType.WARNING: 'Warning',
-        MessageType.ERROR: 'Error',
-    }
-
     def _set_status(self, message, msg_type=MessageType.INFO):
         """Set status bar message or show dialog for long messages."""
         MAX_STATUS_LENGTH = 100
 
         if len(message) > MAX_STATUS_LENGTH:
-            title = self._TITLE_MAP.get(msg_type, 'Information')
+            title = msg_type.get_message_dialog_title()
             dialogs.show_message_dialog(self, title, message, msg_type)
             truncated = message[:MAX_STATUS_LENGTH - 3] + '...'
             self._status_bar.set_text(truncated)
