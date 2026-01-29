@@ -170,10 +170,10 @@ class DiffView(Gtk.Box):
         self._stage_hunk_item.connect('activate', self._on_stage_hunk)
         self._context_menu.append(self._stage_hunk_item)
 
-        # Stage Line for Commit
-        self._stage_line_item = Gtk.MenuItem(label='Stage Line for Commit')
-        self._stage_line_item.connect('activate', self._on_stage_line)
-        self._context_menu.append(self._stage_line_item)
+        # Stage Lines for Commit
+        self._stage_lines_item = Gtk.MenuItem(label='Stage Lines for Commit')
+        self._stage_lines_item.connect('activate', self._on_stage_line)
+        self._context_menu.append(self._stage_lines_item)
 
         # Separator
         self._context_menu.append(Gtk.SeparatorMenuItem())
@@ -183,10 +183,10 @@ class DiffView(Gtk.Box):
         self._revert_hunk_item.connect('activate', self._on_revert_hunk)
         self._context_menu.append(self._revert_hunk_item)
 
-        # Revert Line
-        self._revert_line_item = Gtk.MenuItem(label='Revert Line')
-        self._revert_line_item.connect('activate', self._on_revert_line)
-        self._context_menu.append(self._revert_line_item)
+        # Revert Lines
+        self._revert_lines_item = Gtk.MenuItem(label='Revert Lines')
+        self._revert_lines_item.connect('activate', self._on_revert_line)
+        self._context_menu.append(self._revert_lines_item)
 
         # Separator
         self._context_menu.append(Gtk.SeparatorMenuItem())
@@ -229,20 +229,20 @@ class DiffView(Gtk.Box):
         # Stage/unstage items available for tracked files
         can_stage_unstage = has_file and has_diff and not self._is_untracked
         self._stage_hunk_item.set_sensitive(can_stage_unstage)
-        self._stage_line_item.set_sensitive(can_stage_unstage)
+        self._stage_lines_item.set_sensitive(can_stage_unstage)
 
         # Update labels based on staged state
         if self._is_staged:
             self._stage_hunk_item.set_label('Unstage Hunk from Commit')
-            self._stage_line_item.set_label('Unstage Line from Commit')
+            self._stage_lines_item.set_label('Unstage Lines from Commit')
         else:
             self._stage_hunk_item.set_label('Stage Hunk for Commit')
-            self._stage_line_item.set_label('Stage Line for Commit')
+            self._stage_lines_item.set_label('Stage Lines for Commit')
 
         # Revert items only available for unstaged, tracked files
         can_revert = has_file and has_diff and not self._is_staged and not self._is_untracked
         self._revert_hunk_item.set_sensitive(can_revert)
-        self._revert_line_item.set_sensitive(can_revert)
+        self._revert_lines_item.set_sensitive(can_revert)
 
         # Context items only available for tracked files with diffs
         can_change_context = has_file and has_diff and not self._is_untracked
@@ -258,7 +258,7 @@ class DiffView(Gtk.Box):
                 self.emit('stage-hunk', self._current_file, self._clicked_line)
 
     def _on_stage_line(self, widget):
-        """Handle Stage/Unstage Line action."""
+        """Handle Stage/Unstage Lines action."""
         if self._current_file:
             if self._is_staged:
                 self.emit('unstage-line', self._current_file, self._clicked_line)
@@ -271,7 +271,7 @@ class DiffView(Gtk.Box):
             self.emit('revert-hunk', self._current_file, self._clicked_line)
 
     def _on_revert_line(self, widget):
-        """Handle Revert Line action."""
+        """Handle Revert Lines action."""
         if self._current_file:
             self.emit('revert-line', self._current_file, self._clicked_line)
 
