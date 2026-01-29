@@ -78,15 +78,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     # --- VM callback handlers ---
 
-    _VM_MSG_TYPE_MAP = {
-        'info': MessageType.INFO,
-        'warning': MessageType.WARNING,
-        'error': MessageType.ERROR,
-    }
-
     def _on_vm_status(self, message, msg_type='info'):
         """Handle status messages from VMs."""
-        self._set_status(message, self._VM_MSG_TYPE_MAP.get(msg_type, MessageType.INFO))
+        self._set_status(message, MessageType.get_message_type(msg_type))
 
     def _on_repo_state_changed(self):
         """Handle repository state changes — push VM state to widgets."""

@@ -13,6 +13,18 @@ class MessageType(Enum):
     WARNING = Gtk.MessageType.WARNING
     ERROR = Gtk.MessageType.ERROR
 
+    @staticmethod
+    def get_message_type(name):
+        """Return a MessageType from a string name ('info', 'warning', 'error')."""
+        return _NAME_TO_MSG_TYPE.get(name, MessageType.INFO)
+
+
+_NAME_TO_MSG_TYPE = {
+    'info': MessageType.INFO,
+    'warning': MessageType.WARNING,
+    'error': MessageType.ERROR,
+}
+
 def show_message_dialog(parent, title, message, msg_type=MessageType.INFO):
     """Show a modal message dialog.
 
