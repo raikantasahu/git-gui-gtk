@@ -2,8 +2,6 @@
 
 import os
 import threading
-from enum import Enum, auto
-
 import gi
 
 gi.require_version('Gtk', '3.0')
@@ -20,21 +18,9 @@ from viewmodels.commit_vm import CommitViewModel
 from viewmodels.remote_vm import RemoteViewModel
 from viewmodels.branch_vm import BranchViewModel
 import dialogs
+from dialogs.message import MessageType
 
 
-class MessageType(Enum):
-    """Message types for status display."""
-    INFO = auto()
-    WARNING = auto()
-    ERROR = auto()
-
-
-# Map string msg_type from VMs to MessageType enum
-_MSG_TYPE_MAP = {
-    'info': MessageType.INFO,
-    'warning': MessageType.WARNING,
-    'error': MessageType.ERROR,
-}
 
 def _create_menu_item(label, action_name=None):
     """Create a menu item with optional keyboard shortcut display.
@@ -92,9 +78,15 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     # --- VM callback handlers ---
 
+    _VM_MSG_TYPE_MAP = {
+        'info': MessageType.INFO,
+        'warning': MessageType.WARNING,
+        'error': MessageType.ERROR,
+    }
+
     def _on_vm_status(self, message, msg_type='info'):
         """Handle status messages from VMs."""
-        self._set_status(message, _MSG_TYPE_MAP.get(msg_type, MessageType.INFO))
+        self._set_status(message, self._VM_MSG_TYPE_MAP.get(msg_type, MessageType.INFO))
 
     def _on_repo_state_changed(self):
         """Handle repository state changes — push VM state to widgets."""
@@ -864,56 +856,32 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     # --- Status and error display ---
 
+    _TITLE_MAP = {
+        MessageType.INFO: 'Information',
+        MessageType.WARNING: 'Warning',
+        MessageType.ERROR: 'Error',
+    }
+
     def _set_status(self, message, msg_type=MessageType.INFO):
         """Set status bar message or show dialog for long messages."""
         MAX_STATUS_LENGTH = 100
 
         if len(message) > MAX_STATUS_LENGTH:
-            title_map = {
-                MessageType.INFO: 'Information',
-                MessageType.WARNING: 'Warning',
-                MessageType.ERROR: 'Error',
-            }
-            title = title_map.get(msg_type, 'Information')
-            self._show_message_dialog(title, message, msg_type)
+            title = self._TITLE_MAP.get(msg_type, 'Information')
+            dialogs.show_message_dialog(self, title, message, msg_type)
             truncated = message[:MAX_STATUS_LENGTH - 3] + '...'
             self._status_bar.set_text(truncated)
         else:
             self._status_bar.set_text(message)
 
-    def _show_message_dialog(self, title, message, msg_type=MessageType.INFO):
-        """Show a message dialog based on message type."""
-        type_map = {
-            MessageType.INFO: Gtk.MessageType.INFO,
-            MessageType.WARNING: Gtk.MessageType.WARNING,
-            MessageType.ERROR: Gtk.MessageType.ERROR,
-        }
-        gtk_type = type_map.get(msg_type, Gtk.MessageType.INFO)
-
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=gtk_type,
-            buttons=Gtk.ButtonsType.NONE,
-            text=title
-        )
-        dialog.format_secondary_text(message)
-        button_box = dialog.get_action_area()
-        button_box.set_layout(Gtk.ButtonBoxStyle.END)
-        button_box.set_margin_end(12)
-        button_box.set_margin_bottom(12)
-        dialog.add_button('Close', Gtk.ResponseType.CLOSE)
-        dialog.run()
-        dialog.destroy()
-
     def _show_error(self, title, message):
         """Show an error dialog."""
-        self._show_message_dialog(title, message, MessageType.ERROR)
+        dialogs.show_message_dialog(self, title, message, MessageType.ERROR)
 
     def _show_status_dialog(self, title, message, success):
         """Show a status dialog for operation results."""
         msg_type = MessageType.INFO if success else MessageType.ERROR
-        self._show_message_dialog(title, message, msg_type)
+        dialogs.show_message_dialog(self, title, message, msg_type)
 
     def _confirm_revert(self, title, detail, button_label):
         """Show a destructive confirmation dialog.

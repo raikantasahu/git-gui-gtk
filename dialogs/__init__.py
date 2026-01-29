@@ -22,6 +22,7 @@ from .database import (
 from .ssh_key import show_ssh_key_dialog
 from .about import show_about_dialog
 from .open_repository import show_open_repository_dialog
+from .message import show_message_dialog, MessageType
 
 __all__ = [
     'show_push_dialog',
@@ -44,4 +45,6 @@ __all__ = [
     'show_ssh_key_dialog',
     'show_about_dialog',
     'show_open_repository_dialog',
+    'show_message_dialog',
+    'MessageType',
 ]
