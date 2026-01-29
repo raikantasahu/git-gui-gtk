@@ -1,6 +1,7 @@
 """Main application window."""
 
 import os
+import threading
 from enum import Enum, auto
 
 import gi
@@ -9,8 +10,16 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk, GLib
 
-
-import gitops
+from cache import RecentRepositoryList
+from widgets import FileListWidget, DiffView, CommitArea
+from actions import get_action_shortcut
+from viewmodels.repository_vm import RepositoryViewModel
+from viewmodels.file_list_vm import FileListViewModel
+from viewmodels.diff_vm import DiffViewModel
+from viewmodels.commit_vm import CommitViewModel
+from viewmodels.remote_vm import RemoteViewModel
+from viewmodels.branch_vm import BranchViewModel
+import dialogs
 
 
 class MessageType(Enum):
@@ -18,12 +27,14 @@ class MessageType(Enum):
     INFO = auto()
     WARNING = auto()
     ERROR = auto()
-from cache import RecentRepositoryList
-from gitops import FileChange, FileStatus
-from widgets import FileListWidget, DiffView, CommitArea
-from actions import get_action_shortcut
-import dialogs
 
+
+# Map string msg_type from VMs to MessageType enum
+_MSG_TYPE_MAP = {
+    'info': MessageType.INFO,
+    'warning': MessageType.WARNING,
+    'error': MessageType.ERROR,
+}
 
 def _create_menu_item(label, action_name=None):
     """Create a menu item with optional keyboard shortcut display.
@@ -61,17 +72,50 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self.set_title('Git GUI')
         self.set_default_size(1200, 800)
 
-        self._repo = None
-        self._repo_path = None
-        self._current_file = None
-        self._current_diff_file = None
-        self._current_diff_staged = False
+        # ViewModels
+        self._repo_vm = RepositoryViewModel()
+        self._file_list_vm = FileListViewModel(self._repo_vm)
+        self._diff_vm = DiffViewModel(self._repo_vm)
+        self._commit_vm = CommitViewModel(self._repo_vm)
+        self._remote_vm = RemoteViewModel(self._repo_vm)
+        self._branch_vm = BranchViewModel(self._repo_vm)
+
+        # Wire VM callbacks
+        self._repo_vm.on_state_changed = self._on_repo_state_changed
+        self._repo_vm.set_status = self._on_vm_status
 
         self._setup_ui()
 
         # Try to open current directory as repo
         cwd = os.getcwd()
         self.open_repository(cwd)
+
+    # --- VM callback handlers ---
+
+    def _on_vm_status(self, message, msg_type='info'):
+        """Handle status messages from VMs."""
+        self._set_status(message, _MSG_TYPE_MAP.get(msg_type, MessageType.INFO))
+
+    def _on_repo_state_changed(self):
+        """Handle repository state changes — push VM state to widgets."""
+        vm = self._repo_vm
+        self._unstaged_list.set_files(vm.unstaged_files)
+        self._staged_list.set_files(vm.staged_files)
+
+        branch = vm.branch_name
+        self._branch_label.set_text('  ' + branch if branch else '')
+        if branch:
+            self._visualize_branch_item.set_label(f"Visualize {branch}'s History")
+
+        if not self._commit_vm.amend_mode:
+            self._commit_area.set_commit_sensitive(vm.has_staged_files)
+
+        # Clear diff if selected file is no longer in lists
+        if self._diff_vm.is_stale(vm.unstaged_files, vm.staged_files):
+            self._diff_vm.clear()
+            self._diff_view.clear()
+
+    # --- UI setup ---
 
     def _setup_ui(self):
         """Set up the user interface."""
@@ -351,6 +395,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         return menubar
 
+    # --- Recent repositories ---
+
     def _update_recent_menu(self):
         """Update the Open Recent submenu with recent repositories."""
         # Clear existing items
@@ -389,6 +435,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         RecentRepositoryList.clear_recent()
         self._update_recent_menu()
 
+    # --- Pure UI actions ---
+
     def _open_git_documentation(self):
         """Open Git documentation in default web browser."""
         import webbrowser
@@ -396,56 +444,56 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_ssh_key(self):
         """Show the user's SSH public key."""
-        dialogs.show_ssh_key_dialog(self, on_status=self._set_status)
+        dialogs.show_ssh_key_dialog(self, on_status=lambda msg, t=MessageType.INFO: self._set_status(msg, t))
 
     def _show_about(self):
         """Show the about dialog."""
         dialogs.show_about_dialog(self)
 
+    # --- Repository operations ---
+
     def open_repository(self, path):
         """Open a git repository."""
-        self._repo, self._repo_path = gitops.open_repository(path)
-        if self._repo:
-            self.set_title('Git GUI - ' + gitops.get_repo_name(self._repo_path))
-            self._update_branch_label()
-            self.rescan()
-            self._set_status('Opened repository: ' + path)
-            # Add to recent repositories
-            RecentRepositoryList.add_recent(self._repo_path)
+        success = self._repo_vm.open_repository(path)
+        if success:
+            self.set_title('Git GUI - ' + self._repo_vm.repo_name)
+            RecentRepositoryList.add_recent(self._repo_vm.repo_path)
             self._update_recent_menu()
         else:
-            self._set_status('Not a git repository: ' + path, MessageType.WARNING)
             self._clear_ui()
 
     def _clear_ui(self):
         """Clear all UI elements."""
         self._unstaged_list.set_files([])
         self._staged_list.set_files([])
+        self._diff_vm.clear()
         self._diff_view.clear()
         self._branch_label.set_text('')
         self._commit_area.set_commit_sensitive(False)
-        self._current_diff_file = None
+
+    def rescan(self):
+        """Rescan the repository for changes."""
+        self._repo_vm.rescan()
 
     def explore_repository(self):
         """Open repository root in default file browser."""
-        if not self._repo_path:
+        if not self._repo_vm.repo_path:
             self._set_status('No repository open', MessageType.WARNING)
             return
         try:
             import subprocess
-            subprocess.Popen(['xdg-open', self._repo_path])
+            subprocess.Popen(['xdg-open', self._repo_vm.repo_path])
         except Exception as e:
             self._show_error('Explore Repository', f'Failed to open file browser: {e}')
 
     def _visualize_branch_history(self):
         """Open gitk to visualize current branch history."""
-        if not self._repo_path:
+        if not self._repo_vm.repo_path:
             self._set_status('No repository open', MessageType.WARNING)
             return
         try:
             import subprocess
-            branch = gitops.get_current_branch(self._repo)
-            subprocess.Popen(['gitk', branch], cwd=self._repo_path)
+            subprocess.Popen(['gitk', self._repo_vm.branch_name], cwd=self._repo_vm.repo_path)
         except FileNotFoundError:
             self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
         except Exception as e:
@@ -453,12 +501,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _visualize_all_history(self):
         """Open gitk to visualize all branches history."""
-        if not self._repo_path:
+        if not self._repo_vm.repo_path:
             self._set_status('No repository open', MessageType.WARNING)
             return
         try:
             import subprocess
-            subprocess.Popen(['gitk', '--all'], cwd=self._repo_path)
+            subprocess.Popen(['gitk', '--all'], cwd=self._repo_vm.repo_path)
         except FileNotFoundError:
             self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
         except Exception as e:
@@ -466,19 +514,19 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _show_database_statistics(self):
         """Show git database statistics."""
-        if not self._repo_path:
+        if not self._repo_vm.repo_path:
             self._set_status('No repository open', MessageType.WARNING)
             return
-        dialogs.show_database_statistics_dialog(self, self._repo)
+        dialogs.show_database_statistics_dialog(self, self._repo_vm.repo)
 
     def _compress_database(self):
         """Compress git database (git gc)."""
-        if not self._repo_path:
+        if not self._repo_vm.repo_path:
             self._set_status('No repository open', MessageType.WARNING)
             return
         self._set_status('Compressing database...')
         dialogs.show_compress_database_dialog(
-            self, self._repo,
+            self, self._repo_vm.repo,
             on_complete=lambda success, msg: self._set_status(
                 msg, MessageType.INFO if success else MessageType.ERROR
             )
@@ -486,450 +534,341 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _verify_database(self):
         """Verify git database (git fsck)."""
-        if not self._repo_path:
+        if not self._repo_vm.repo_path:
             self._set_status('No repository open', MessageType.WARNING)
             return
         self._set_status('Verifying database...')
         dialogs.show_verify_database_dialog(
-            self, self._repo,
+            self, self._repo_vm.repo,
             on_complete=lambda success, msg: self._set_status(
                 'Database verification completed' if success else 'Database verification found issues'
             )
         )
 
-    def _update_branch_label(self):
-        """Update the branch indicator and related menu items."""
-        branch = gitops.get_current_branch(self._repo)
-        self._branch_label.set_text('  ' + branch if branch else '')
-        # Update visualize menu item
-        if branch:
-            self._visualize_branch_item.set_label(f"Visualize {branch}'s History")
-
-    def rescan(self):
-        """Rescan the repository for changes."""
-        if not self._repo is not None:
-            return
-
-        unstaged, staged = gitops.get_status(self._repo)
-        self._unstaged_list.set_files(unstaged)
-        self._staged_list.set_files(staged)
-
-        self._update_branch_label()
-        self._set_status('{} unstaged, {} staged changes'.format(len(unstaged), len(staged)))
-
-        # Enable commit button only if there are staged files
-        self._commit_area.set_commit_sensitive(len(staged) > 0)
-
-        # Clear diff if selected file is no longer in list
-        if self._current_file:
-            all_files = [f.path for f in unstaged + staged]
-            if self._current_file.path not in all_files:
-                self._diff_view.clear()
-                self._current_file = None
-                self._current_diff_file = None
+    # --- File selection handlers ---
 
     def _on_unstaged_file_selected(self, widget, file_change):
         """Handle unstaged file selection."""
         self._staged_list.clear_selection()
-        self._current_file = file_change
-        self._show_diff(file_change, staged=False)
+        self._diff_vm.show_diff(file_change, staged=False,
+                                context_lines=self._diff_view.get_context_lines())
+        self._update_diff_view()
 
     def _on_staged_file_selected(self, widget, file_change):
         """Handle staged file selection."""
         self._unstaged_list.clear_selection()
-        self._current_file = file_change
-        self._show_diff(file_change, staged=True)
+        self._diff_vm.show_diff(file_change, staged=True,
+                                context_lines=self._diff_view.get_context_lines())
+        self._update_diff_view()
 
     def _on_unstaged_file_activated(self, widget, file_change):
         """Handle unstaged file double-click (stage)."""
         if file_change is None:
-            # Stage all button clicked
-            self.stage_all()
+            self._file_list_vm.stage_all()
         else:
-            self._stage_file(file_change)
+            self._file_list_vm.stage_file(file_change)
 
     def _on_staged_file_activated(self, widget, file_change):
         """Handle staged file double-click (unstage)."""
         if file_change is None:
-            # Unstage all button clicked
-            self.unstage_all()
+            self._file_list_vm.unstage_all()
         else:
-            self._unstage_file(file_change)
+            self._file_list_vm.unstage_file(file_change)
 
     def _on_file_revert_requested(self, widget, file_change):
         """Handle revert request from context menu."""
         if not file_change:
             return
+        if self._confirm_revert('Revert Changes?',
+                                'This will discard all changes to:\n{}\n\n'
+                                'This action cannot be undone.'.format(file_change.path),
+                                'Revert'):
+            self._file_list_vm.revert_file(file_change.path)
 
-        # Show confirmation dialog
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text='Revert Changes?'
-        )
-        dialog.format_secondary_text(
-            'This will discard all changes to:\n{}\n\nThis action cannot be undone.'.format(file_change.path)
-        )
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
-        dialog.add_button('Revert', Gtk.ResponseType.OK)
+    def _update_diff_view(self):
+        """Push current DiffViewModel state to the DiffView widget."""
+        vm = self._diff_vm
+        self._diff_view.set_diff(vm.diff_text, vm.file_path, vm.status_text)
+        self._diff_view.set_file_info(vm.file_path, vm.is_staged, vm.is_untracked)
 
-        # Make the Revert button look destructive
-        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        revert_btn.get_style_context().add_class('destructive-action')
-
-        response = dialog.run()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK:
-            success, message = gitops.revert_file(self._repo,file_change.path)
-            self._set_status(message)
-            self.rescan()
+    # --- Diff operations ---
 
     def _on_stage_hunk(self, widget, file_path, line):
-        """Handle stage hunk request from diff view."""
-        success, message = gitops.stage_hunk(self._repo, file_path, line)
-        self._set_status(message)
-        if success:
-            self.rescan()
+        self._diff_vm.stage_hunk(file_path, line)
 
     def _on_stage_line(self, widget, file_path, line):
-        """Handle stage line request from diff view."""
-        success, message = gitops.stage_line(self._repo, file_path, line)
-        self._set_status(message)
-        if success:
-            self.rescan()
+        self._diff_vm.stage_line(file_path, line)
 
     def _on_unstage_hunk(self, widget, file_path, line):
-        """Handle unstage hunk request from diff view."""
-        success, message = gitops.unstage_hunk(self._repo, file_path, line)
-        self._set_status(message)
-        if success:
-            self.rescan()
+        self._diff_vm.unstage_hunk(file_path, line)
 
     def _on_unstage_line(self, widget, file_path, line):
-        """Handle unstage line request from diff view."""
-        success, message = gitops.unstage_line(self._repo, file_path, line)
-        self._set_status(message)
-        if success:
-            self.rescan()
+        self._diff_vm.unstage_line(file_path, line)
 
     def _on_revert_hunk(self, widget, file_path, line):
-        """Handle revert hunk request from diff view."""
-        # Show confirmation dialog
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text='Revert Hunk?'
-        )
-        dialog.format_secondary_text(
-            f'This will discard changes in the selected hunk from:\n{file_path}\n\n'
-            'This action cannot be undone.'
-        )
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
-        dialog.add_button('Revert Hunk', Gtk.ResponseType.OK)
-
-        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        revert_btn.get_style_context().add_class('destructive-action')
-
-        response = dialog.run()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK:
-            success, message = gitops.revert_hunk(self._repo, file_path, line)
-            self._set_status(message)
-            if success:
-                self.rescan()
+        if self._confirm_revert('Revert Hunk?',
+                                f'This will discard changes in the selected hunk from:\n{file_path}\n\n'
+                                'This action cannot be undone.',
+                                'Revert Hunk'):
+            self._diff_vm.revert_hunk(file_path, line)
 
     def _on_revert_line(self, widget, file_path, line):
-        """Handle revert line request from diff view."""
-        # Show confirmation dialog
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text='Revert Line?'
-        )
-        dialog.format_secondary_text(
-            f'This will discard the selected line change from:\n{file_path}\n\n'
-            'This action cannot be undone.'
-        )
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
-        dialog.add_button('Revert Line', Gtk.ResponseType.OK)
-
-        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        revert_btn.get_style_context().add_class('destructive-action')
-
-        response = dialog.run()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.OK:
-            success, message = gitops.revert_line(self._repo, file_path, line)
-            self._set_status(message)
-            if success:
-                self.rescan()
+        if self._confirm_revert('Revert Lines?',
+                                f'This will discard the selected line change from:\n{file_path}\n\n'
+                                'This action cannot be undone.',
+                                'Revert Lines'):
+            self._diff_vm.revert_line(file_path, line)
 
     def _on_context_changed(self, widget, context_lines):
         """Handle context lines change from diff view."""
-        if hasattr(self, '_current_diff_file') and self._current_diff_file:
-            self._show_diff(self._current_diff_file, self._current_diff_staged)
+        self._diff_vm.context_lines = context_lines
+        if self._diff_vm.refresh():
+            self._update_diff_view()
             self._set_status(f'Context lines: {context_lines}')
 
-    def _show_diff(self, file_change, staged):
-        """Show diff for a file."""
-        context_lines = self._diff_view.get_context_lines()
-        diff = gitops.get_diff(
-            self._repo, self._repo_path, file_change.path,
-            staged=staged, context_lines=context_lines
-        )
-        status = self._get_file_status_text(file_change, staged)
-        self._diff_view.set_diff(diff, file_change.path, status)
-        is_untracked = file_change.status == FileStatus.UNTRACKED
-        self._diff_view.set_file_info(file_change.path, staged, is_untracked)
-        # Store current file info for context refresh
-        self._current_diff_file = file_change
-        self._current_diff_staged = staged
-
-    def _get_file_status_text(self, file_change, staged):
-        """Get descriptive status text for a file."""
-        if staged:
-            return 'Staged for commit'
-        else:
-            status_map = {
-                FileStatus.MODIFIED: 'Modified, not staged',
-                FileStatus.ADDED: 'Added, not staged',
-                FileStatus.DELETED: 'Missing',
-                FileStatus.RENAMED: 'Renamed, not staged',
-                FileStatus.COPIED: 'Copied, not staged',
-                FileStatus.UNTRACKED: 'Untracked, not staged',
-                FileStatus.UNMERGED: 'Unmerged',
-            }
-            return status_map.get(file_change.status, 'Unknown')
-
-    def _stage_file(self, file_change):
-        """Stage a single file."""
-        if gitops.stage_file(self._repo,file_change.path):
-            self._set_status('Staged: ' + file_change.path)
-            self.rescan()
-        else:
-            self._set_status('Failed to stage: ' + file_change.path, MessageType.ERROR)
-
-    def _unstage_file(self, file_change):
-        """Unstage a single file."""
-        if gitops.unstage_file(self._repo,file_change.path):
-            self._set_status('Unstaged: ' + file_change.path)
-            self.rescan()
-        else:
-            self._set_status('Failed to unstage: ' + file_change.path, MessageType.ERROR)
+    # --- Staging operations (thin delegation for actions.py) ---
 
     def stage_selected(self):
         """Stage the currently selected file."""
         file_change = self._unstaged_list.get_selected_file()
         if file_change:
-            self._stage_file(file_change)
+            self._file_list_vm.stage_file(file_change)
 
     def unstage_selected(self):
         """Unstage the currently selected file."""
         file_change = self._staged_list.get_selected_file()
         if file_change:
-            self._unstage_file(file_change)
+            self._file_list_vm.unstage_file(file_change)
 
     def revert_selected(self):
         """Revert the currently selected file."""
         file_change = self._unstaged_list.get_selected_file()
         if file_change:
-            # Show confirmation dialog
-            dialog = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.OK_CANCEL,
-                text='Revert Changes?'
-            )
-            dialog.format_secondary_text(
-                'This will discard all changes to:\n{}\n\nThis cannot be undone.'.format(file_change.path)
-            )
-            response = dialog.run()
-            dialog.destroy()
-
-            if response == Gtk.ResponseType.OK:
-                success, message = gitops.revert_file(self._repo,file_change.path)
-                self._set_status(message)
-                self.rescan()
+            if self._confirm_revert('Revert Changes?',
+                                    'This will discard all changes to:\n{}\n\n'
+                                    'This cannot be undone.'.format(file_change.path),
+                                    'Revert'):
+                self._file_list_vm.revert_file(file_change.path)
 
     def stage_all(self):
         """Stage all unstaged files."""
-        if gitops.stage_all(self._repo):
-            self._set_status('Staged all changes')
-            self.rescan()
-        else:
-            self._set_status('Failed to stage all changes', MessageType.ERROR)
+        self._file_list_vm.stage_all()
 
     def unstage_all(self):
         """Unstage all staged files."""
-        if gitops.unstage_all(self._repo):
-            self._set_status('Unstaged all changes')
-            self.rescan()
-        else:
-            self._set_status('Failed to unstage all changes', MessageType.ERROR)
+        self._file_list_vm.unstage_all()
+
+    # --- Commit operations ---
 
     def _on_commit_requested(self, widget, message, amend, sign_off):
         """Handle commit request from commit area."""
-        self.commit(message, amend, sign_off)
+        success, result_msg = self._commit_vm.commit(message, amend, sign_off)
+        if success:
+            self._commit_area.clear_message()
+            self._commit_area.set_amend_mode(False)
+        else:
+            self._show_error('Commit Error', result_msg)
 
     def _on_amend_toggled(self, widget, amend_enabled):
         """Handle amend checkbox toggle."""
         if amend_enabled:
-            # Load last commit message when entering amend mode
-            last_msg = gitops.get_last_commit_message(self._repo)
+            last_msg, files = self._commit_vm.get_amend_data()
             self._commit_area.set_message(last_msg)
-            # Show files from last commit in staged area
-            last_commit_files = gitops.get_last_commit_files(self._repo)
-            # Merge with currently staged files
-            _, currently_staged = gitops.get_status(self._repo)
-            # Combine: last commit files + any new staged files not in last commit
-            staged_paths = {f.path for f in last_commit_files}
-            for f in currently_staged:
-                if f.path not in staged_paths:
-                    last_commit_files.append(f)
-            self._staged_list.set_files(last_commit_files)
-            # Enable commit button for amend even if no staged changes
+            self._staged_list.set_files(files)
             self._commit_area.set_commit_sensitive(True)
         else:
-            # Clear message when leaving amend mode
+            self._commit_vm.leave_amend_mode()
             self._commit_area.clear_message()
-            # Rescan to restore normal view
-            self.rescan()
 
     def commit(self, message=None, amend=None, sign_off=None):
-        """Perform a commit."""
+        """Perform a commit (called from actions.py)."""
         if message is None:
             message = self._commit_area.get_message()
         if amend is None:
             amend = self._commit_area.is_amend_mode()
         if sign_off is None:
             sign_off = self._commit_area.is_signoff_enabled()
-
-        if not message.strip() and not amend:
-            self._show_error('Commit Error', 'Please enter a commit message.')
-            return
-
-        success, result_msg = gitops.commit(self._repo,message, amend=amend, sign_off=sign_off)
+        success, result_msg = self._commit_vm.commit(message, amend, sign_off)
         if success:
-            self._set_status(result_msg)
             self._commit_area.clear_message()
             self._commit_area.set_amend_mode(False)
-            self.rescan()
         else:
             self._show_error('Commit Error', result_msg)
 
     def toggle_amend(self):
-        """Toggle amend mode and load last commit message."""
-        current = self._commit_area.is_amend_mode()
-        self._commit_area.set_amend_mode(not current)
-
-        if not current:
-            # Loading amend mode, get last commit message
-            last_msg = gitops.get_last_commit_message(self._repo)
+        """Toggle amend mode (called from actions.py)."""
+        enabled, last_msg, files = self._commit_vm.toggle_amend()
+        if enabled:
+            self._commit_area.set_amend_mode(True)
             self._commit_area.set_message(last_msg)
+        else:
+            self._commit_area.set_amend_mode(False)
+            self._commit_area.clear_message()
+
+    # --- Remote operations (async wrappers) ---
 
     def show_push_dialog(self):
         """Show dialog to push to a remote."""
-        result = dialogs.show_push_dialog(self, self._repo)
+        result = dialogs.show_push_dialog(self, self._repo_vm.repo)
         if result:
             remote, branch, force, tags = result
-            self._do_push(remote, branch, force, tags)
-
-    def _do_push(self, remote_name, branch_name=None, force=False, tags=False):
-        """Perform push to the specified remote."""
-        branch_display = f'{remote_name}/{branch_name}' if branch_name else remote_name
-        self._set_status(f'Pushing to {branch_display}...')
-
-        def push_async():
-            success, message = gitops.push(self._repo,remote_name, branch_name, force, tags)
-            GLib.idle_add(self._on_push_complete, success, message)
-
-        import threading
-        thread = threading.Thread(target=push_async)
-        thread.daemon = True
-        thread.start()
-
-    def _on_push_complete(self, success, message):
-        """Handle push completion."""
-        self._set_status(message)
-        if not success:
-            self._show_error('Push Error', message)
+            branch_display = f'{remote}/{branch}' if branch else remote
+            self._set_status(f'Pushing to {branch_display}...')
+            self._run_async(
+                lambda: self._remote_vm.push(remote, branch, force, tags),
+                lambda s, m: self._show_error('Push Error', m) if not s else None
+            )
 
     def show_pull_dialog(self):
         """Show dialog to pull from a remote."""
-        result = dialogs.show_pull_dialog(self, self._repo)
+        result = dialogs.show_pull_dialog(self, self._repo_vm.repo)
         if result:
             remote, branch, ff_only, rebase = result
-            self._do_pull(remote, branch, ff_only, rebase)
-
-    def _do_pull(self, remote_name, branch_name=None, ff_only=False, rebase=False):
-        """Perform pull from the specified remote."""
-        branch_display = f'{remote_name}/{branch_name}' if branch_name else remote_name
-        self._set_status(f'Pulling from {branch_display}...')
-
-        def pull_async():
-            success, message = gitops.pull(self._repo,remote_name, branch_name, ff_only, rebase)
-            GLib.idle_add(self._on_pull_complete, success, message)
-
-        import threading
-        thread = threading.Thread(target=pull_async)
-        thread.daemon = True
-        thread.start()
-
-    def _on_pull_complete(self, success, message):
-        """Handle pull completion."""
-        self._set_status(message)
-        if success:
-            self.rescan()
-        else:
-            self._show_error('Pull Error', message)
+            branch_display = f'{remote}/{branch}' if branch else remote
+            self._set_status(f'Pulling from {branch_display}...')
+            self._run_async(
+                lambda: self._remote_vm.pull(remote, branch, ff_only, rebase),
+                lambda s, m: self._show_error('Pull Error', m) if not s else None
+            )
 
     def show_fetch_dialog(self):
         """Show dialog to fetch from a remote."""
-        result = dialogs.show_fetch_dialog(self, self._repo)
+        result = dialogs.show_fetch_dialog(self, self._repo_vm.repo)
         if result:
-            self._do_fetch(result)
+            self._set_status(f'Fetching from {result}...')
+            self._run_async(
+                lambda: self._remote_vm.fetch(result),
+                lambda s, m: self._show_error('Fetch Error', m) if not s else None
+            )
 
-    def _do_fetch(self, remote_name):
-        """Perform fetch from the specified remote."""
-        self._set_status(f'Fetching from {remote_name}...')
+    def _run_async(self, operation, on_complete):
+        """Run an operation in a background thread, dispatch result to main thread.
 
-        def fetch_async():
-            success, message = gitops.fetch(self._repo,remote_name)
-            GLib.idle_add(self._on_fetch_complete, success, message)
+        Args:
+            operation: callable returning (success, message)
+            on_complete: callable(success, message) run on the main thread
+        """
+        def worker():
+            success, message = operation()
+            GLib.idle_add(self._on_async_complete, success, message, on_complete)
 
-        import threading
-        thread = threading.Thread(target=fetch_async)
+        thread = threading.Thread(target=worker)
         thread.daemon = True
         thread.start()
 
-    def _on_fetch_complete(self, success, message):
-        """Handle fetch completion."""
+    def _on_async_complete(self, success, message, on_complete):
+        """Handle async operation completion on the main thread."""
         self._set_status(message)
-        if not success:
-            self._show_error('Fetch Error', message)
+        if on_complete:
+            on_complete(success, message)
+
+    # --- Remote CRUD ---
+
+    def show_add_remote_dialog(self):
+        """Show dialog to add a new remote."""
+        result = dialogs.show_add_remote_dialog(self, self._repo_vm.repo)
+        if result:
+            name, url, fetch_after = result
+            success, message = self._remote_vm.add_remote(name, url)
+            self._set_status(message)
+            if not success:
+                self._show_error('Add Remote Error', message)
+            elif fetch_after:
+                self._set_status(f'Fetching from {name}...')
+                self._run_async(
+                    lambda: self._remote_vm.fetch(name),
+                    lambda s, m: self._show_error('Fetch Error', m) if not s else None
+                )
+
+    def show_rename_remote_dialog(self):
+        """Show dialog to rename a remote."""
+        result = dialogs.show_rename_remote_dialog(self, self._repo_vm.repo)
+        if result:
+            old_name, new_name = result
+            success, message = self._remote_vm.rename_remote(old_name, new_name)
+            self._set_status(message)
+            if not success:
+                self._show_error('Rename Remote Error', message)
+
+    def show_delete_remote_dialog(self):
+        """Show dialog to delete a remote."""
+        result = dialogs.show_delete_remote_dialog(self, self._repo_vm.repo)
+        if result:
+            success, message = self._remote_vm.delete_remote(result)
+            self._set_status(message)
+            if not success:
+                self._show_error('Delete Remote Error', message)
+
+    # --- Branch dialogs ---
+
+    def _show_create_branch_dialog(self):
+        result = dialogs.show_create_branch_dialog(self, self._repo_vm.repo)
+        if result:
+            branch_name, base, checkout = result
+            success, message = self._branch_vm.create_branch(branch_name, base, checkout)
+            if not success:
+                self._show_error('Create Branch Error', message)
+
+    def _show_checkout_branch_dialog(self):
+        result = dialogs.show_checkout_branch_dialog(self, self._repo_vm.repo)
+        if result:
+            success, message = self._branch_vm.checkout_branch(result)
+            if not success:
+                self._show_error('Checkout Branch Error', message)
+
+    def _show_rename_branch_dialog(self):
+        result = dialogs.show_rename_branch_dialog(self, self._repo_vm.repo)
+        if result:
+            old_name, new_name = result
+            success, message = self._branch_vm.rename_branch(old_name, new_name)
+            if not success:
+                self._show_error('Rename Branch Error', message)
+
+    def _show_delete_branch_dialog(self):
+        result = dialogs.show_delete_branch_dialog(self, self._repo_vm.repo)
+        if result:
+            branch_name, force = result
+            success, message = self._branch_vm.delete_branch(branch_name, force)
+            if not success:
+                self._show_error('Delete Branch Error', message)
+
+    def _show_reset_branch_dialog(self):
+        result = dialogs.show_reset_branch_dialog(self, self._repo_vm.repo)
+        if result:
+            target, mode = result
+            success, message = self._branch_vm.reset_branch(target, mode)
+            if not success:
+                self._show_error('Reset Branch Error', message)
+
+    def _show_merge_dialog(self):
+        result = dialogs.show_merge_dialog(self, self._repo_vm.repo)
+        if result:
+            branch, strategy = result
+            success, message = self._branch_vm.merge_branch(branch, strategy)
+            self._show_status_dialog('Merge', message, success)
+
+    def _show_rebase_dialog(self):
+        result = dialogs.show_rebase_dialog(self, self._repo_vm.repo)
+        if result:
+            success, message = self._branch_vm.rebase_branch(result)
+            self._show_status_dialog('Rebase', message, success)
+
+    def _show_list_remotes_dialog(self):
+        dialogs.show_list_remotes_dialog(self, self._repo_vm.repo)
+
+    def show_open_dialog(self):
+        """Show dialog to open a repository."""
+        result = dialogs.show_open_repository_dialog(self, self._repo_vm.repo_path)
+        if result:
+            self.open_repository(result)
+
+    # --- Status and error display ---
 
     def _set_status(self, message, msg_type=MessageType.INFO):
-        """Set status bar message or show dialog for long messages.
-
-        Args:
-            message: The status message to display
-            msg_type: MessageType (INFO, WARNING, or ERROR)
-        """
-        # Maximum characters that fit reasonably in the status bar
+        """Set status bar message or show dialog for long messages."""
         MAX_STATUS_LENGTH = 100
 
         if len(message) > MAX_STATUS_LENGTH:
-            # Show dialog for long messages
             title_map = {
                 MessageType.INFO: 'Information',
                 MessageType.WARNING: 'Warning',
@@ -937,20 +876,13 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             }
             title = title_map.get(msg_type, 'Information')
             self._show_message_dialog(title, message, msg_type)
-            # Show truncated message in status bar
             truncated = message[:MAX_STATUS_LENGTH - 3] + '...'
             self._status_bar.set_text(truncated)
         else:
             self._status_bar.set_text(message)
 
     def _show_message_dialog(self, title, message, msg_type=MessageType.INFO):
-        """Show a message dialog based on message type.
-
-        Args:
-            title: Dialog title
-            message: The full message to display
-            msg_type: MessageType (INFO, WARNING, or ERROR)
-        """
+        """Show a message dialog based on message type."""
         type_map = {
             MessageType.INFO: Gtk.MessageType.INFO,
             MessageType.WARNING: Gtk.MessageType.WARNING,
@@ -983,126 +915,25 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         msg_type = MessageType.INFO if success else MessageType.ERROR
         self._show_message_dialog(title, message, msg_type)
 
-    def _show_create_branch_dialog(self):
-        """Show dialog to create a new branch."""
-        result = dialogs.show_create_branch_dialog(self, self._repo)
-        if result:
-            branch_name, base, checkout = result
-            success, message = gitops.create_branch(
-                self._repo, branch_name, start_point=base, checkout=checkout
-            )
-            self._set_status(message)
-            if success:
-                self._update_branch_label()
-            else:
-                self._show_error('Create Branch Error', message)
+    def _confirm_revert(self, title, detail, button_label):
+        """Show a destructive confirmation dialog.
 
-    def _show_checkout_branch_dialog(self):
-        """Show dialog to checkout a branch."""
-        result = dialogs.show_checkout_branch_dialog(self, self._repo)
-        if result:
-            success, message = gitops.checkout_branch(self._repo,result)
-            self._set_status(message)
-            if success:
-                self._update_branch_label()
-                self.rescan()
-            else:
-                self._show_error('Checkout Branch Error', message)
+        Returns True if the user confirmed.
+        """
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.NONE,
+            text=title
+        )
+        dialog.format_secondary_text(detail)
+        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
+        dialog.add_button(button_label, Gtk.ResponseType.OK)
 
-    def _show_rename_branch_dialog(self):
-        """Show dialog to rename a branch."""
-        result = dialogs.show_rename_branch_dialog(self, self._repo)
-        if result:
-            old_name, new_name = result
-            success, message = gitops.rename_branch(self._repo,old_name, new_name)
-            self._set_status(message)
-            if success:
-                self._update_branch_label()
-            else:
-                self._show_error('Rename Branch Error', message)
+        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
+        revert_btn.get_style_context().add_class('destructive-action')
 
-    def _show_delete_branch_dialog(self):
-        """Show dialog to delete a branch."""
-        result = dialogs.show_delete_branch_dialog(self, self._repo)
-        if result:
-            branch_name, force = result
-            success, message = gitops.delete_branch(self._repo,branch_name, force=force)
-            self._set_status(message)
-            if not success:
-                self._show_error('Delete Branch Error', message)
-
-    def _show_list_remotes_dialog(self):
-        """Show dialog listing all remotes."""
-        dialogs.show_list_remotes_dialog(self, self._repo)
-
-    def show_add_remote_dialog(self):
-        """Show dialog to add a new remote."""
-        result = dialogs.show_add_remote_dialog(self, self._repo)
-        if result:
-            name, url, fetch_after = result
-            success, message = gitops.add_remote(self._repo,name, url)
-            self._set_status(message)
-            if not success:
-                self._show_error('Add Remote Error', message)
-            elif fetch_after:
-                self._do_fetch(name)
-
-    def show_rename_remote_dialog(self):
-        """Show dialog to rename a remote."""
-        result = dialogs.show_rename_remote_dialog(self, self._repo)
-        if result:
-            old_name, new_name = result
-            success, message = gitops.rename_remote(self._repo,old_name, new_name)
-            self._set_status(message)
-            if not success:
-                self._show_error('Rename Remote Error', message)
-
-    def show_delete_remote_dialog(self):
-        """Show dialog to delete a remote."""
-        result = dialogs.show_delete_remote_dialog(self, self._repo)
-        if result:
-            success, message = gitops.delete_remote(self._repo,result)
-            self._set_status(message)
-            if not success:
-                self._show_error('Delete Remote Error', message)
-
-    def _show_reset_branch_dialog(self):
-        """Show dialog to reset current branch."""
-        result = dialogs.show_reset_branch_dialog(self, self._repo)
-        if result:
-            target, mode = result
-            success, message = gitops.reset_branch(self._repo,target, mode=mode)
-            self._set_status(message)
-            if success:
-                self.rescan()
-            else:
-                self._show_error('Reset Branch Error', message)
-
-    def _show_merge_dialog(self):
-        """Show dialog to merge a branch."""
-        result = dialogs.show_merge_dialog(self, self._repo)
-        if result:
-            branch, strategy = result
-            success, message = gitops.merge_branch(self._repo, branch, strategy=strategy)
-            self._set_status(message)
-            if success:
-                self._update_branch_label()
-                self.rescan()
-            self._show_status_dialog('Merge', message, success)
-
-    def _show_rebase_dialog(self):
-        """Show dialog to rebase current branch."""
-        result = dialogs.show_rebase_dialog(self, self._repo)
-        if result:
-            success, message = gitops.rebase_branch(self._repo,result)
-            self._set_status(message)
-            if success:
-                self._update_branch_label()
-                self.rescan()
-            self._show_status_dialog('Rebase', message, success)
-
-    def show_open_dialog(self):
-        """Show dialog to open a repository."""
-        result = dialogs.show_open_repository_dialog(self, self._repo_path)
-        if result:
-            self.open_repository(result)
+        response = dialog.run()
+        dialog.destroy()
+        return response == Gtk.ResponseType.OK
