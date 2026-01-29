@@ -20,8 +20,6 @@ from viewmodels.branch_vm import BranchViewModel
 import dialogs
 from dialogs.message import MessageType
 
-
-
 def _create_menu_item(label, action_name=None):
     """Create a menu item with optional keyboard shortcut display.
 
@@ -47,7 +45,6 @@ def _create_menu_item(label, action_name=None):
     else:
         item = Gtk.MenuItem(label=label)
     return item
-
 
 class GitGuiWindow(Gtk.ApplicationWindow):
     """Main application window."""
@@ -876,20 +873,4 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         Returns True if the user confirmed.
         """
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE,
-            text=title
-        )
-        dialog.format_secondary_text(detail)
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
-        dialog.add_button(button_label, Gtk.ResponseType.OK)
-
-        revert_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
-        revert_btn.get_style_context().add_class('destructive-action')
-
-        response = dialog.run()
-        dialog.destroy()
-        return response == Gtk.ResponseType.OK
+        return dialogs.show_confirm_dialog(self, title, detail, button_label)
