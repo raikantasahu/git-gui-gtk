@@ -243,7 +243,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         repo_menu.append(Gtk.SeparatorMenuItem())
 
         # Visualize section
-        self._visualize_branch_item = _create_menu_item('Visualize main\'s History')
+        branch = self._repo_vm.branch_name or 'main'
+        self._visualize_branch_item = _create_menu_item(f"Visualize {branch}'s History")
         self._visualize_branch_item.connect('activate', lambda w: self._visualize_branch_history())
         repo_menu.append(self._visualize_branch_item)
 
