@@ -52,6 +52,10 @@ def show_message_dialog(parent, title, message, msg_type=MessageType.INFO):
     )
     dialog.format_secondary_text(message)
 
+    for label in dialog.get_message_area().get_children():
+        if isinstance(label, Gtk.Label):
+            label.set_selectable(True)
+
     button_box = dialog.get_action_area()
     button_box.set_layout(Gtk.ButtonBoxStyle.END)
     button_box.set_margin_end(12)
