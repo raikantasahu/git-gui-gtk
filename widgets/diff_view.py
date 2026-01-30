@@ -27,9 +27,9 @@ class DiffView(Gtk.Box):
 
     __gsignals__ = {
         'stage-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
-        'stage-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'stage-lines': (GObject.SignalFlags.RUN_FIRST, None, (str, int, int)),
         'unstage-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
-        'unstage-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'unstage-lines': (GObject.SignalFlags.RUN_FIRST, None, (str, int, int)),
         'revert-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'revert-lines': (GObject.SignalFlags.RUN_FIRST, None, (str, int, int)),
         'context-changed': (GObject.SignalFlags.RUN_FIRST, None, (int,)),
@@ -174,7 +174,7 @@ class DiffView(Gtk.Box):
 
         # Stage Lines for Commit
         self._stage_lines_item = Gtk.MenuItem(label='Stage Lines for Commit')
-        self._stage_lines_item.connect('activate', self._on_stage_line)
+        self._stage_lines_item.connect('activate', self._on_stage_lines)
         self._context_menu.append(self._stage_lines_item)
 
         # Separator
@@ -256,13 +256,20 @@ class DiffView(Gtk.Box):
             else:
                 self.emit('stage-hunk', self._current_file, self._clicked_line)
 
-    def _on_stage_line(self, widget):
+    def _on_stage_lines(self, widget):
         """Handle Stage/Unstage Lines action."""
         if self._current_file:
-            if self._is_staged:
-                self.emit('unstage-line', self._current_file, self._clicked_line)
+            bounds = self._buffer.get_selection_bounds()
+            if bounds:
+                start_line = bounds[0].get_line()
+                end_line = bounds[1].get_line()
             else:
-                self.emit('stage-line', self._current_file, self._clicked_line)
+                start_line = self._clicked_line
+                end_line = self._clicked_line
+            if self._is_staged:
+                self.emit('unstage-lines', self._current_file, start_line, end_line)
+            else:
+                self.emit('stage-lines', self._current_file, start_line, end_line)
 
     def _on_revert_hunk(self, widget):
         """Handle Revert Hunk action."""

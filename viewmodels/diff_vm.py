@@ -100,9 +100,11 @@ class DiffViewModel:
         if success:
             self._repo_vm.rescan()
 
-    def stage_line(self, file_path, line):
-        """Stage a line at the given diff line."""
-        success, message = gitops.stage_line(self._repo_vm.repo, file_path, line)
+    def stage_lines(self, file_path, start_line, end_line):
+        """Stage lines in the given diff line range."""
+        success, message = gitops.stage_lines(
+            self._repo_vm.repo, file_path, start_line, end_line, self.context_lines
+        )
         self._repo_vm._status(message)
         if success:
             self._repo_vm.rescan()
@@ -114,9 +116,11 @@ class DiffViewModel:
         if success:
             self._repo_vm.rescan()
 
-    def unstage_line(self, file_path, line):
-        """Unstage a line at the given diff line."""
-        success, message = gitops.unstage_line(self._repo_vm.repo, file_path, line)
+    def unstage_lines(self, file_path, start_line, end_line):
+        """Unstage lines in the given diff line range."""
+        success, message = gitops.unstage_lines(
+            self._repo_vm.repo, file_path, start_line, end_line, self.context_lines
+        )
         self._repo_vm._status(message)
         if success:
             self._repo_vm.rescan()

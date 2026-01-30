@@ -135,9 +135,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
         # --- Signal connections: diff view ---
         self._diff_view.connect('stage-hunk', self._on_stage_hunk)
-        self._diff_view.connect('stage-line', self._on_stage_line)
+        self._diff_view.connect('stage-lines', self._on_stage_lines)
         self._diff_view.connect('unstage-hunk', self._on_unstage_hunk)
-        self._diff_view.connect('unstage-line', self._on_unstage_line)
+        self._diff_view.connect('unstage-lines', self._on_unstage_lines)
         self._diff_view.connect('revert-hunk', self._on_revert_hunk)
         self._diff_view.connect('revert-lines', self._on_revert_lines)
         self._diff_view.connect('context-changed', self._on_context_changed)
@@ -402,14 +402,14 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _on_stage_hunk(self, widget, file_path, line):
         self._diff_vm.stage_hunk(file_path, line)
 
-    def _on_stage_line(self, widget, file_path, line):
-        self._diff_vm.stage_line(file_path, line)
+    def _on_stage_lines(self, widget, file_path, start_line, end_line):
+        self._diff_vm.stage_lines(file_path, start_line, end_line)
 
     def _on_unstage_hunk(self, widget, file_path, line):
         self._diff_vm.unstage_hunk(file_path, line)
 
-    def _on_unstage_line(self, widget, file_path, line):
-        self._diff_vm.unstage_line(file_path, line)
+    def _on_unstage_lines(self, widget, file_path, start_line, end_line):
+        self._diff_vm.unstage_lines(file_path, start_line, end_line)
 
     def _on_revert_hunk(self, widget, file_path, line):
         if self._confirm_revert('Revert Hunk?',

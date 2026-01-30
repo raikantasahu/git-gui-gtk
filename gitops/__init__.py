@@ -12,9 +12,9 @@ from .unstage_file import unstage_file
 from .stage_all import stage_all
 from .unstage_all import unstage_all
 from .stage_hunk import stage_hunk
-from .stage_line import stage_line
+from .stage_lines import stage_lines
 from .unstage_hunk import unstage_hunk
-from .unstage_line import unstage_line
+from .unstage_lines import unstage_lines
 from .revert_hunk import revert_hunk
 from .revert_lines import revert_lines
 from .commit import commit
@@ -63,9 +63,9 @@ __all__ = [
     'stage_all',
     'unstage_all',
     'stage_hunk',
-    'stage_line',
+    'stage_lines',
     'unstage_hunk',
-    'unstage_line',
+    'unstage_lines',
     # Commit
     'commit',
     'get_last_commit_message',
