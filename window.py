@@ -37,6 +37,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._remote_vm = RemoteViewModel(self._repo_vm)
         self._branch_vm = BranchViewModel(self._repo_vm)
 
+        # Guard: ignore file-selection signals while refreshing lists
+        self._updating_file_lists = False
+
         # Wire VM callbacks
         self._repo_vm.on_state_changed = self._on_repo_state_changed
         self._repo_vm.set_status = self._on_vm_status
@@ -56,8 +59,10 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def _on_repo_state_changed(self):
         """Handle repository state changes — push VM state to widgets."""
         vm = self._repo_vm
+        self._updating_file_lists = True
         self._unstaged_list.set_files(vm.unstaged_files)
         self._staged_list.set_files(vm.staged_files)
+        self._updating_file_lists = False
 
         branch = vm.branch_name
         self._branch_label.set_text('  ' + branch if branch else '')
@@ -67,10 +72,13 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         if not self._commit_vm.amend_mode:
             self._commit_area.set_commit_sensitive(vm.has_staged_files)
 
-        # Clear diff if selected file is no longer in lists
+        # Clear diff if selected file is no longer in lists,
+        # otherwise refresh it so it reflects the current state.
         if self._diff_vm.is_stale(vm.unstaged_files, vm.staged_files):
             self._diff_vm.clear()
             self._diff_view.clear()
+        elif self._diff_vm.refresh():
+            self._update_diff_view()
 
     # --- UI setup ---
 
@@ -355,6 +363,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _on_unstaged_file_selected(self, widget, file_change):
         """Handle unstaged file selection."""
+        if self._updating_file_lists:
+            return
         self._staged_list.clear_selection()
         self._diff_vm.show_diff(file_change, staged=False,
                                 context_lines=self._diff_view.get_context_lines())
@@ -362,6 +372,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _on_staged_file_selected(self, widget, file_change):
         """Handle staged file selection."""
+        if self._updating_file_lists:
+            return
         self._unstaged_list.clear_selection()
         self._diff_vm.show_diff(file_change, staged=True,
                                 context_lines=self._diff_view.get_context_lines())
