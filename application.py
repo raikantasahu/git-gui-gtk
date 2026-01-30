@@ -21,8 +21,8 @@ class GitGuiApplication(Gtk.Application):
 
     def __init__(self):
         super().__init__(
-            application_id='org.gnome.GitGuiGtk',
-            flags=Gio.ApplicationFlags.HANDLES_OPEN
+            application_id='com.github.raikanta.GitGuiGtk',
+            flags=Gio.ApplicationFlags.HANDLES_OPEN | Gio.ApplicationFlags.NON_UNIQUE
         )
         self.window = None
         self.repo_path = None
