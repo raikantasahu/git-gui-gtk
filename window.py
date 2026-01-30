@@ -139,7 +139,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._diff_view.connect('unstage-hunk', self._on_unstage_hunk)
         self._diff_view.connect('unstage-line', self._on_unstage_line)
         self._diff_view.connect('revert-hunk', self._on_revert_hunk)
-        self._diff_view.connect('revert-line', self._on_revert_line)
+        self._diff_view.connect('revert-lines', self._on_revert_lines)
         self._diff_view.connect('context-changed', self._on_context_changed)
 
         # --- Signal connections: commit area ---
@@ -418,12 +418,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
                                 'Revert Hunk'):
             self._diff_vm.revert_hunk(file_path, line)
 
-    def _on_revert_line(self, widget, file_path, line):
+    def _on_revert_lines(self, widget, file_path, start_line, end_line):
         if self._confirm_revert('Revert Lines?',
                                 f'This will discard the selected line change from:\n{file_path}\n\n'
                                 'This action cannot be undone.',
                                 'Revert Lines'):
-            self._diff_vm.revert_line(file_path, line)
+            self._diff_vm.revert_lines(file_path, start_line, end_line)
 
     def _on_context_changed(self, widget, context_lines):
         """Handle context lines change from diff view."""

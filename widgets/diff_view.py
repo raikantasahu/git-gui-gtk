@@ -31,7 +31,7 @@ class DiffView(Gtk.Box):
         'unstage-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'unstage-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
         'revert-hunk': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
-        'revert-line': (GObject.SignalFlags.RUN_FIRST, None, (str, int)),
+        'revert-lines': (GObject.SignalFlags.RUN_FIRST, None, (str, int, int)),
         'context-changed': (GObject.SignalFlags.RUN_FIRST, None, (int,)),
     }
 
@@ -187,7 +187,7 @@ class DiffView(Gtk.Box):
 
         # Revert Lines
         self._revert_lines_item = Gtk.MenuItem(label='Revert Lines')
-        self._revert_lines_item.connect('activate', self._on_revert_line)
+        self._revert_lines_item.connect('activate', self._on_revert_lines)
         self._context_menu.append(self._revert_lines_item)
 
         # Separator
@@ -269,10 +269,17 @@ class DiffView(Gtk.Box):
         if self._current_file:
             self.emit('revert-hunk', self._current_file, self._clicked_line)
 
-    def _on_revert_line(self, widget):
+    def _on_revert_lines(self, widget):
         """Handle Revert Lines action."""
         if self._current_file:
-            self.emit('revert-line', self._current_file, self._clicked_line)
+            bounds = self._buffer.get_selection_bounds()
+            if bounds:
+                start_line = bounds[0].get_line()
+                end_line = bounds[1].get_line()
+            else:
+                start_line = self._clicked_line
+                end_line = self._clicked_line
+            self.emit('revert-lines', self._current_file, start_line, end_line)
 
     def _on_more_context(self, widget):
         """Show more context lines in diff."""

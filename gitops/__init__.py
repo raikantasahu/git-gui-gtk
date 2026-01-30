@@ -16,7 +16,7 @@ from .stage_line import stage_line
 from .unstage_hunk import unstage_hunk
 from .unstage_line import unstage_line
 from .revert_hunk import revert_hunk
-from .revert_line import revert_line
+from .revert_lines import revert_lines
 from .commit import commit
 from .get_last_commit_message import get_last_commit_message
 from .get_last_commit_files import get_last_commit_files
@@ -84,7 +84,7 @@ __all__ = [
     # File operations
     'revert_file',
     'revert_hunk',
-    'revert_line',
+    'revert_lines',
     # Branch operations
     'get_branches',
     'get_tracking_branches',
