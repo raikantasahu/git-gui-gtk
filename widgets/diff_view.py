@@ -36,7 +36,9 @@ class DiffView(Gtk.Box):
     }
 
     def __init__(self):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        super().__init__()
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_spacing(0)
 
         # Track current file and state
         self._current_file = None

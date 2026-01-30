@@ -1,0 +1,468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk+" version="3.20"/>
+
+  <object class="GtkBox" id="main_box">
+    <property name="visible">True</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">0</property>
+
+    <!-- Menu Bar -->
+    <child>
+      <object class="GtkMenuBar" id="menubar">
+        <property name="visible">True</property>
+
+        <!-- Repository Menu -->
+        <child>
+          <object class="GtkMenuItem">
+            <property name="visible">True</property>
+            <property name="label">Repository</property>
+            <child type="submenu">
+              <object class="GtkMenu" id="repo_menu">
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkMenuItem" id="menu_open">
+                    <property name="visible">True</property>
+                    <property name="label">Open...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_open_recent">
+                    <property name="visible">True</property>
+                    <property name="label">Open Recent...</property>
+                    <child type="submenu">
+                      <object class="GtkMenu" id="recent_submenu">
+                        <property name="visible">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_explore">
+                    <property name="visible">True</property>
+                    <property name="label">Explore Repository</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_rescan">
+                    <property name="visible">True</property>
+                    <property name="label">Rescan</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_visualize_branch">
+                    <property name="visible">True</property>
+                    <property name="label">Visualize main's History</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_visualize_all">
+                    <property name="visible">True</property>
+                    <property name="label">Visualize All Branches History</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_db_stats">
+                    <property name="visible">True</property>
+                    <property name="label">Database Statistics</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_db_compress">
+                    <property name="visible">True</property>
+                    <property name="label">Compress Database</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_db_verify">
+                    <property name="visible">True</property>
+                    <property name="label">Verify Database</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_quit">
+                    <property name="visible">True</property>
+                    <property name="label">Quit</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Branch Menu -->
+        <child>
+          <object class="GtkMenuItem">
+            <property name="visible">True</property>
+            <property name="label">Branch</property>
+            <child type="submenu">
+              <object class="GtkMenu">
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkMenuItem" id="menu_create_branch">
+                    <property name="visible">True</property>
+                    <property name="label">Create...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_checkout_branch">
+                    <property name="visible">True</property>
+                    <property name="label">Checkout...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_rename_branch">
+                    <property name="visible">True</property>
+                    <property name="label">Rename...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_delete_branch">
+                    <property name="visible">True</property>
+                    <property name="label">Delete...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_reset_branch">
+                    <property name="visible">True</property>
+                    <property name="label">Reset...</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Merge Menu -->
+        <child>
+          <object class="GtkMenuItem">
+            <property name="visible">True</property>
+            <property name="label">Merge</property>
+            <child type="submenu">
+              <object class="GtkMenu">
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkMenuItem" id="menu_merge">
+                    <property name="visible">True</property>
+                    <property name="label">Merge...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_rebase">
+                    <property name="visible">True</property>
+                    <property name="label">Rebase...</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Remote Menu -->
+        <child>
+          <object class="GtkMenuItem">
+            <property name="visible">True</property>
+            <property name="label">Remote</property>
+            <child type="submenu">
+              <object class="GtkMenu">
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkMenuItem" id="menu_list_remotes">
+                    <property name="visible">True</property>
+                    <property name="label">List</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_add_remote">
+                    <property name="visible">True</property>
+                    <property name="label">Add...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_rename_remote">
+                    <property name="visible">True</property>
+                    <property name="label">Rename...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_delete_remote">
+                    <property name="visible">True</property>
+                    <property name="label">Delete...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_fetch">
+                    <property name="visible">True</property>
+                    <property name="label">Fetch...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_pull">
+                    <property name="visible">True</property>
+                    <property name="label">Pull...</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_push">
+                    <property name="visible">True</property>
+                    <property name="label">Push...</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Help Menu -->
+        <child>
+          <object class="GtkMenuItem">
+            <property name="visible">True</property>
+            <property name="label">Help</property>
+            <child type="submenu">
+              <object class="GtkMenu">
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkMenuItem" id="menu_git_docs">
+                    <property name="visible">True</property>
+                    <property name="label">Online Git Documentation</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_ssh_key">
+                    <property name="visible">True</property>
+                    <property name="label">Show SSH Key</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_about">
+                    <property name="visible">True</property>
+                    <property name="label">About</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">False</property>
+      </packing>
+    </child>
+
+    <!-- Toolbar -->
+    <child>
+      <object class="GtkBox" id="toolbar">
+        <property name="visible">True</property>
+        <property name="orientation">horizontal</property>
+        <property name="spacing">6</property>
+        <property name="margin-start">6</property>
+        <property name="margin-end">6</property>
+        <property name="margin-top">4</property>
+        <property name="margin-bottom">4</property>
+        <child>
+          <object class="GtkButton" id="open_button">
+            <property name="visible">True</property>
+            <property name="tooltip-text">Open Repository (Ctrl+O)</property>
+            <child>
+              <object class="GtkImage">
+                <property name="visible">True</property>
+                <property name="icon-name">folder-open-symbolic</property>
+                <property name="icon-size">4</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="rescan_button">
+            <property name="visible">True</property>
+            <property name="tooltip-text">Rescan (F5)</property>
+            <child>
+              <object class="GtkImage">
+                <property name="visible">True</property>
+                <property name="icon-name">view-refresh-symbolic</property>
+                <property name="icon-size">4</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="visible">True</property>
+            <property name="orientation">vertical</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="padding">4</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkImage">
+            <property name="visible">True</property>
+            <property name="icon-name">emblem-symbolic-link</property>
+            <property name="icon-size">4</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="branch_label">
+            <property name="visible">True</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">False</property>
+      </packing>
+    </child>
+
+    <!-- Horizontal separator below toolbar -->
+    <child>
+      <object class="GtkSeparator">
+        <property name="visible">True</property>
+        <property name="orientation">horizontal</property>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">False</property>
+      </packing>
+    </child>
+
+    <!-- Main Paned -->
+    <child>
+      <object class="GtkPaned" id="main_paned">
+        <property name="visible">True</property>
+        <property name="orientation">horizontal</property>
+        <property name="vexpand">True</property>
+
+        <!-- Left: file lists paned -->
+        <child>
+          <object class="GtkPaned" id="file_lists_paned">
+            <property name="visible">True</property>
+            <property name="orientation">vertical</property>
+            <property name="width-request">280</property>
+          </object>
+          <packing>
+            <property name="resize">False</property>
+            <property name="shrink">False</property>
+          </packing>
+        </child>
+
+        <!-- Right: diff + commit paned -->
+        <child>
+          <object class="GtkPaned" id="right_paned">
+            <property name="visible">True</property>
+            <property name="orientation">vertical</property>
+            <property name="hexpand">True</property>
+
+            <!-- Diff view -->
+            <child>
+              <object class="DiffView" id="diff_view">
+                <property name="visible">True</property>
+                <property name="vexpand">True</property>
+              </object>
+              <packing>
+                <property name="resize">True</property>
+                <property name="shrink">False</property>
+              </packing>
+            </child>
+
+            <!-- Commit area -->
+            <child>
+              <object class="CommitArea" id="commit_area">
+                <property name="visible">True</property>
+                <property name="height-request">180</property>
+              </object>
+              <packing>
+                <property name="resize">False</property>
+                <property name="shrink">False</property>
+              </packing>
+            </child>
+
+          </object>
+          <packing>
+            <property name="resize">True</property>
+            <property name="shrink">False</property>
+          </packing>
+        </child>
+
+      </object>
+      <packing>
+        <property name="expand">True</property>
+        <property name="fill">True</property>
+      </packing>
+    </child>
+
+    <!-- Status Bar -->
+    <child>
+      <object class="GtkLabel" id="status_bar">
+        <property name="visible">True</property>
+        <property name="xalign">0</property>
+        <property name="margin-start">8</property>
+        <property name="margin-end">8</property>
+        <property name="margin-top">4</property>
+        <property name="margin-bottom">4</property>
+        <style>
+          <class name="dim-label"/>
+        </style>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">False</property>
+      </packing>
+    </child>
+
+  </object>
+</interface>

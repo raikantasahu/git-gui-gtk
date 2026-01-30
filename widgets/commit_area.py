@@ -32,7 +32,9 @@ class CommitArea(Gtk.Box):
     }
 
     def __init__(self):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        super().__init__()
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_spacing(6)
         self.set_margin_start(6)
         self.set_margin_end(6)
         self.set_margin_top(6)

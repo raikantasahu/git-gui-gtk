@@ -20,32 +20,6 @@ from viewmodels.branch_vm import BranchViewModel
 import dialogs
 from dialogs.message import MessageType
 
-def _create_menu_item(label, action_name=None):
-    """Create a menu item with optional keyboard shortcut display.
-
-    Args:
-        label: Menu item label
-        action_name: Action name to look up shortcut (optional)
-
-    Returns:
-        Gtk.MenuItem with shortcut shown if available
-    """
-    shortcut = get_action_shortcut(action_name) if action_name else ''
-    if shortcut:
-        # Use a box to show label and shortcut
-        item = Gtk.MenuItem()
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        label_widget = Gtk.Label(label=label)
-        label_widget.set_xalign(0)
-        box.pack_start(label_widget, True, True, 0)
-        shortcut_label = Gtk.Label(label=shortcut)
-        shortcut_label.get_style_context().add_class('dim-label')
-        box.pack_end(shortcut_label, False, False, 0)
-        item.add(box)
-    else:
-        item = Gtk.MenuItem(label=label)
-    return item
-
 class GitGuiWindow(Gtk.ApplicationWindow):
     """Main application window."""
 
@@ -100,82 +74,66 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     # --- UI setup ---
 
+    # Menu items that should display keyboard shortcut hints
+    _MENU_SHORTCUTS = {
+        'menu_open': 'open',
+        'menu_rescan': 'rescan',
+        'menu_explore': 'explore',
+        'menu_quit': 'quit',
+        'menu_add_remote': 'add-remote',
+        'menu_fetch': 'fetch',
+        'menu_pull': 'pull',
+        'menu_push': 'push',
+        'menu_about': 'about',
+    }
+
     def _setup_ui(self):
         """Set up the user interface."""
-        # Main layout
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        builder = Gtk.Builder()
+        builder.add_from_file(os.path.join(os.path.dirname(__file__), 'ui', 'window.ui'))
+
+        main_box = builder.get_object('main_box')
         self.add(main_box)
 
-        # Menu bar
-        menubar = self._create_menubar()
-        main_box.pack_start(menubar, False, False, 0)
+        # --- Widget references ---
+        self._branch_label = builder.get_object('branch_label')
+        self._diff_view = builder.get_object('diff_view')
+        self._commit_area = builder.get_object('commit_area')
+        self._status_bar = builder.get_object('status_bar')
+        self._visualize_branch_item = builder.get_object('menu_visualize_branch')
+        self._recent_menu_item = builder.get_object('menu_open_recent')
+        self._recent_submenu = builder.get_object('recent_submenu')
 
-        # Toolbar
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        toolbar.set_margin_start(6)
-        toolbar.set_margin_end(6)
-        toolbar.set_margin_top(4)
-        toolbar.set_margin_bottom(4)
+        # --- Shortcut labels on menu items ---
+        self._add_shortcut_labels(builder)
 
-        # Open button
-        open_button = Gtk.Button()
-        open_icon = Gtk.Image.new_from_icon_name('folder-open-symbolic', Gtk.IconSize.BUTTON)
-        open_button.add(open_icon)
-        open_button.set_tooltip_text('Open Repository (Ctrl+O)')
-        open_button.connect('clicked', lambda b: self.show_open_dialog())
-        toolbar.pack_start(open_button, False, False, 0)
+        # --- Dynamic recent repos menu ---
+        self._update_recent_menu()
 
-        # Rescan button
-        rescan_button = Gtk.Button()
-        rescan_icon = Gtk.Image.new_from_icon_name('view-refresh-symbolic', Gtk.IconSize.BUTTON)
-        rescan_button.add(rescan_icon)
-        rescan_button.set_tooltip_text('Rescan (F5)')
-        rescan_button.connect('clicked', lambda b: self.rescan())
-        toolbar.pack_start(rescan_button, False, False, 0)
+        # --- FileListWidgets (need constructor params) ---
+        file_lists_paned = builder.get_object('file_lists_paned')
 
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
-        # Branch indicator
-        branch_icon = Gtk.Image.new_from_icon_name('emblem-symbolic-link', Gtk.IconSize.BUTTON)
-        toolbar.pack_start(branch_icon, False, False, 0)
-        self._branch_label = Gtk.Label()
-        toolbar.pack_start(self._branch_label, False, False, 0)
-
-        main_box.pack_start(toolbar, False, False, 0)
-        main_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
-
-        # Main horizontal paned: file lists on left, diff+commit on right
-        main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        main_paned.set_vexpand(True)
-
-        # Left side: file lists with resizable paned (full vertical space)
-        file_lists_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        file_lists_paned.set_size_request(280, -1)
-
-        # Unstaged changes
         self._unstaged_list = FileListWidget(title='Unstaged Changes', staged=False)
         self._unstaged_list.set_vexpand(True)
+        file_lists_paned.pack1(self._unstaged_list, resize=True, shrink=False)
+
+        self._staged_list = FileListWidget(title='Staged Changes', staged=True)
+        self._staged_list.set_vexpand(True)
+        file_lists_paned.pack2(self._staged_list, resize=True, shrink=False)
+
+        # --- Signal connections: toolbar ---
+        builder.get_object('open_button').connect('clicked', lambda b: self.show_open_dialog())
+        builder.get_object('rescan_button').connect('clicked', lambda b: self.rescan())
+
+        # --- Signal connections: file lists ---
         self._unstaged_list.connect('file-selected', self._on_unstaged_file_selected)
         self._unstaged_list.connect('file-activated', self._on_unstaged_file_activated)
         self._unstaged_list.connect('file-revert-requested', self._on_file_revert_requested)
-        file_lists_paned.pack1(self._unstaged_list, resize=True, shrink=False)
 
-        # Staged changes
-        self._staged_list = FileListWidget(title='Staged Changes', staged=True)
-        self._staged_list.set_vexpand(True)
         self._staged_list.connect('file-selected', self._on_staged_file_selected)
         self._staged_list.connect('file-activated', self._on_staged_file_activated)
-        file_lists_paned.pack2(self._staged_list, resize=True, shrink=False)
 
-        main_paned.pack1(file_lists_paned, resize=False, shrink=False)
-
-        # Right side: diff view and commit area stacked vertically
-        right_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        right_paned.set_hexpand(True)
-
-        # Diff view (top)
-        self._diff_view = DiffView()
-        self._diff_view.set_vexpand(True)
+        # --- Signal connections: diff view ---
         self._diff_view.connect('stage-hunk', self._on_stage_hunk)
         self._diff_view.connect('stage-line', self._on_stage_line)
         self._diff_view.connect('unstage-hunk', self._on_unstage_hunk)
@@ -183,201 +141,65 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._diff_view.connect('revert-hunk', self._on_revert_hunk)
         self._diff_view.connect('revert-line', self._on_revert_line)
         self._diff_view.connect('context-changed', self._on_context_changed)
-        right_paned.pack1(self._diff_view, resize=True, shrink=False)
 
-        # Commit area (bottom)
-        self._commit_area = CommitArea()
-        self._commit_area.set_size_request(-1, 180)
+        # --- Signal connections: commit area ---
         self._commit_area.connect('commit-requested', self._on_commit_requested)
         self._commit_area.connect('push-requested', lambda w: self.show_push_dialog())
         self._commit_area.connect('rescan-requested', lambda w: self.rescan())
         self._commit_area.connect('amend-toggled', self._on_amend_toggled)
-        right_paned.pack2(self._commit_area, resize=False, shrink=False)
 
-        main_paned.pack2(right_paned, resize=True, shrink=False)
-
-        main_box.pack_start(main_paned, True, True, 0)
-
-        # Status bar
-        self._status_bar = Gtk.Label()
-        self._status_bar.set_xalign(0)
-        self._status_bar.set_margin_start(8)
-        self._status_bar.set_margin_end(8)
-        self._status_bar.set_margin_top(4)
-        self._status_bar.set_margin_bottom(4)
-        self._status_bar.get_style_context().add_class('dim-label')
-        main_box.pack_start(self._status_bar, False, False, 0)
+        # --- Signal connections: menu items ---
+        menu_signals = {
+            'menu_open': lambda w: self.show_open_dialog(),
+            'menu_explore': lambda w: self.explore_repository(),
+            'menu_rescan': lambda w: self.rescan(),
+            'menu_visualize_branch': lambda w: self._visualize_branch_history(),
+            'menu_visualize_all': lambda w: self._visualize_all_history(),
+            'menu_db_stats': lambda w: self._show_database_statistics(),
+            'menu_db_compress': lambda w: self._compress_database(),
+            'menu_db_verify': lambda w: self._verify_database(),
+            'menu_quit': lambda w: self.get_application().quit(),
+            'menu_create_branch': lambda w: self._show_create_branch_dialog(),
+            'menu_checkout_branch': lambda w: self._show_checkout_branch_dialog(),
+            'menu_rename_branch': lambda w: self._show_rename_branch_dialog(),
+            'menu_delete_branch': lambda w: self._show_delete_branch_dialog(),
+            'menu_reset_branch': lambda w: self._show_reset_branch_dialog(),
+            'menu_merge': lambda w: self._show_merge_dialog(),
+            'menu_rebase': lambda w: self._show_rebase_dialog(),
+            'menu_list_remotes': lambda w: self._show_list_remotes_dialog(),
+            'menu_add_remote': lambda w: self.show_add_remote_dialog(),
+            'menu_rename_remote': lambda w: self.show_rename_remote_dialog(),
+            'menu_delete_remote': lambda w: self.show_delete_remote_dialog(),
+            'menu_fetch': lambda w: self.show_fetch_dialog(),
+            'menu_pull': lambda w: self.show_pull_dialog(),
+            'menu_push': lambda w: self.show_push_dialog(),
+            'menu_git_docs': lambda w: self._open_git_documentation(),
+            'menu_ssh_key': lambda w: self._show_ssh_key(),
+            'menu_about': lambda w: self._show_about(),
+        }
+        for widget_id, handler in menu_signals.items():
+            builder.get_object(widget_id).connect('activate', handler)
 
         main_box.show_all()
 
-    def _create_menubar(self):
-        """Create the menu bar."""
-        menubar = Gtk.MenuBar()
-
-        # Repository menu
-        repo_menu = Gtk.Menu()
-        repo_item = Gtk.MenuItem(label='Repository')
-        repo_item.set_submenu(repo_menu)
-
-        open_item = _create_menu_item('Open...', 'open')
-        open_item.connect('activate', lambda w: self.show_open_dialog())
-        repo_menu.append(open_item)
-
-        # Open Recent submenu
-        self._recent_menu_item = Gtk.MenuItem(label='Open Recent...')
-        self._recent_submenu = Gtk.Menu()
-        self._recent_menu_item.set_submenu(self._recent_submenu)
-        repo_menu.append(self._recent_menu_item)
-        self._update_recent_menu()
-
-        repo_menu.append(Gtk.SeparatorMenuItem())
-
-        explore_item = _create_menu_item('Explore Repository', 'explore')
-        explore_item.connect('activate', lambda w: self.explore_repository())
-        repo_menu.append(explore_item)
-
-        rescan_item = _create_menu_item('Rescan', 'rescan')
-        rescan_item.connect('activate', lambda w: self.rescan())
-        repo_menu.append(rescan_item)
-
-        repo_menu.append(Gtk.SeparatorMenuItem())
-
-        # Visualize section
-        branch = self._repo_vm.branch_name or 'main'
-        self._visualize_branch_item = _create_menu_item(f"Visualize {branch}'s History")
-        self._visualize_branch_item.connect('activate', lambda w: self._visualize_branch_history())
-        repo_menu.append(self._visualize_branch_item)
-
-        visualize_all_item = _create_menu_item('Visualize All Branches History')
-        visualize_all_item.connect('activate', lambda w: self._visualize_all_history())
-        repo_menu.append(visualize_all_item)
-
-        repo_menu.append(Gtk.SeparatorMenuItem())
-
-        # Database section
-        db_stats_item = _create_menu_item('Database Statistics')
-        db_stats_item.connect('activate', lambda w: self._show_database_statistics())
-        repo_menu.append(db_stats_item)
-
-        db_compress_item = _create_menu_item('Compress Database')
-        db_compress_item.connect('activate', lambda w: self._compress_database())
-        repo_menu.append(db_compress_item)
-
-        db_verify_item = _create_menu_item('Verify Database')
-        db_verify_item.connect('activate', lambda w: self._verify_database())
-        repo_menu.append(db_verify_item)
-
-        repo_menu.append(Gtk.SeparatorMenuItem())
-
-        quit_item = _create_menu_item('Quit', 'quit')
-        quit_item.connect('activate', lambda w: self.get_application().quit())
-        repo_menu.append(quit_item)
-
-        menubar.append(repo_item)
-
-        # Branch menu
-        branch_menu = Gtk.Menu()
-        branch_item = Gtk.MenuItem(label='Branch')
-        branch_item.set_submenu(branch_menu)
-
-        create_branch_item = _create_menu_item('Create...')
-        create_branch_item.connect('activate', lambda w: self._show_create_branch_dialog())
-        branch_menu.append(create_branch_item)
-
-        checkout_branch_item = _create_menu_item('Checkout...')
-        checkout_branch_item.connect('activate', lambda w: self._show_checkout_branch_dialog())
-        branch_menu.append(checkout_branch_item)
-
-        rename_branch_item = _create_menu_item('Rename...')
-        rename_branch_item.connect('activate', lambda w: self._show_rename_branch_dialog())
-        branch_menu.append(rename_branch_item)
-
-        delete_branch_item = _create_menu_item('Delete...')
-        delete_branch_item.connect('activate', lambda w: self._show_delete_branch_dialog())
-        branch_menu.append(delete_branch_item)
-
-        branch_menu.append(Gtk.SeparatorMenuItem())
-
-        reset_branch_item = _create_menu_item('Reset...')
-        reset_branch_item.connect('activate', lambda w: self._show_reset_branch_dialog())
-        branch_menu.append(reset_branch_item)
-
-        menubar.append(branch_item)
-
-        # Merge menu
-        merge_menu = Gtk.Menu()
-        merge_item = Gtk.MenuItem(label='Merge')
-        merge_item.set_submenu(merge_menu)
-
-        merge_branch_item = _create_menu_item('Merge...')
-        merge_branch_item.connect('activate', lambda w: self._show_merge_dialog())
-        merge_menu.append(merge_branch_item)
-
-        rebase_item = _create_menu_item('Rebase...')
-        rebase_item.connect('activate', lambda w: self._show_rebase_dialog())
-        merge_menu.append(rebase_item)
-
-        menubar.append(merge_item)
-
-        # Remote menu
-        remote_menu = Gtk.Menu()
-        remote_item = Gtk.MenuItem(label='Remote')
-        remote_item.set_submenu(remote_menu)
-
-        list_remotes_item = _create_menu_item('List')
-        list_remotes_item.connect('activate', lambda w: self._show_list_remotes_dialog())
-        remote_menu.append(list_remotes_item)
-
-        add_remote_item = _create_menu_item('Add...', 'add-remote')
-        add_remote_item.connect('activate', lambda w: self.show_add_remote_dialog())
-        remote_menu.append(add_remote_item)
-
-        rename_remote_item = _create_menu_item('Rename...')
-        rename_remote_item.connect('activate', lambda w: self.show_rename_remote_dialog())
-        remote_menu.append(rename_remote_item)
-
-        delete_remote_item = _create_menu_item('Delete...')
-        delete_remote_item.connect('activate', lambda w: self.show_delete_remote_dialog())
-        remote_menu.append(delete_remote_item)
-
-        remote_menu.append(Gtk.SeparatorMenuItem())
-
-        fetch_item = _create_menu_item('Fetch...', 'fetch')
-        fetch_item.connect('activate', lambda w: self.show_fetch_dialog())
-        remote_menu.append(fetch_item)
-
-        pull_item = _create_menu_item('Pull...', 'pull')
-        pull_item.connect('activate', lambda w: self.show_pull_dialog())
-        remote_menu.append(pull_item)
-
-        push_item = _create_menu_item('Push...', 'push')
-        push_item.connect('activate', lambda w: self.show_push_dialog())
-        remote_menu.append(push_item)
-
-        menubar.append(remote_item)
-
-        # Help menu
-        help_menu = Gtk.Menu()
-        help_item = Gtk.MenuItem(label='Help')
-        help_item.set_submenu(help_menu)
-
-        git_docs_item = _create_menu_item('Online Git Documentation')
-        git_docs_item.connect('activate', lambda w: self._open_git_documentation())
-        help_menu.append(git_docs_item)
-
-        ssh_key_item = _create_menu_item('Show SSH Key')
-        ssh_key_item.connect('activate', lambda w: self._show_ssh_key())
-        help_menu.append(ssh_key_item)
-
-        help_menu.append(Gtk.SeparatorMenuItem())
-
-        about_item = _create_menu_item('About', 'about')
-        about_item.connect('activate', lambda w: self._show_about())
-        help_menu.append(about_item)
-
-        menubar.append(help_item)
-
-        return menubar
+    def _add_shortcut_labels(self, builder):
+        """Replace plain labels on menu items with label + shortcut hint boxes."""
+        for widget_id, action_name in self._MENU_SHORTCUTS.items():
+            shortcut = get_action_shortcut(action_name)
+            if not shortcut:
+                continue
+            item = builder.get_object(widget_id)
+            label_text = item.get_label()
+            child = item.get_child()
+            item.remove(child)
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            label_widget = Gtk.Label(label=label_text)
+            label_widget.set_xalign(0)
+            box.pack_start(label_widget, True, True, 0)
+            shortcut_label = Gtk.Label(label=shortcut)
+            shortcut_label.get_style_context().add_class('dim-label')
+            box.pack_end(shortcut_label, False, False, 0)
+            item.add(box)
 
     # --- Recent repositories ---
 
