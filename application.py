@@ -40,6 +40,7 @@ class GitGuiApplication(Gtk.Application):
         """Called when application is activated."""
         if not self.window:
             self.window = GitGuiWindow(application=self)
+            self.window.set_wmclass('gitguigtk', 'Git GUI GTK')
             setup_window_actions(self, self.window)
         self.window.present()
 
