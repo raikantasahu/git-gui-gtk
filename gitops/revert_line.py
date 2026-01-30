@@ -19,6 +19,9 @@ def _parse_diff_into_hunks(diff_text: str) -> tuple[list[str], list[tuple[int, i
         start_line and end_line are line numbers in the diff text (0-indexed).
     """
     lines = diff_text.split('\n')
+    # Remove trailing empty string produced by split on text ending with \n
+    if lines and lines[-1] == '':
+        lines.pop()
     header_lines = []
     hunks = []
 
@@ -129,14 +132,15 @@ def _create_single_line_hunk(hunk_lines: list[str], line_in_hunk: int) -> list[s
             else:
                 new_old_count += 1
         elif line_type == '+':
-            # Convert other additions to context (they exist in working tree)
-            # Skip them - they stay as working tree changes
-            pass
-        elif line_type == '-':
-            # Convert other deletions to context (keep the original line)
+            # Other additions exist in the working tree and must appear
+            # as context so git apply --reverse can match the file content.
             new_hunk_body.append(' ' + line_content)
             new_old_count += 1
             new_new_count += 1
+        elif line_type == '-':
+            # Other deletions don't exist in the working tree, so they
+            # can't appear as context. Skip them.
+            pass
         else:
             # Context line - keep as is
             new_hunk_body.append(line)
@@ -152,7 +156,8 @@ def _create_single_line_hunk(hunk_lines: list[str], line_in_hunk: int) -> list[s
 def revert_line(
     repo: Optional[Repo],
     file_path: str,
-    diff_line: int
+    diff_line: int,
+    context_lines: int = 3
 ) -> tuple[bool, str]:
     """Revert a specific line from a file (discard change in working tree).
 
@@ -160,6 +165,7 @@ def revert_line(
         repo: Git repository object
         file_path: Path to the file
         diff_line: Line number in the diff where the cursor is (0-indexed)
+        context_lines: Number of context lines (must match the displayed diff)
 
     Returns:
         Tuple of (success, message)
@@ -168,8 +174,9 @@ def revert_line(
         return False, 'No repository open'
 
     try:
-        # Get the unstaged diff for this file
-        diff_text = repo.git.diff('--', file_path)
+        # Get the unstaged diff for this file, using the same context
+        # as the displayed diff so line numbers match.
+        diff_text = repo.git.diff(f'-U{context_lines}', '--', file_path)
         if not diff_text:
             return False, 'No unstaged changes to revert'
 

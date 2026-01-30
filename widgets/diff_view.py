@@ -209,14 +209,11 @@ class DiffView(Gtk.Box):
         """Handle button press events."""
         if event.button == 3:  # Right click
             # Get line number at click position
-            x, y = self._source_view.window_to_buffer_coords(
+            _, y = self._source_view.window_to_buffer_coords(
                 Gtk.TextWindowType.TEXT, int(event.x), int(event.y)
             )
-            iter_at_click = self._source_view.get_iter_at_location(x, y)
-            if iter_at_click[0]:  # iter_at_click is (success, iter)
-                self._clicked_line = iter_at_click[1].get_line()
-            else:
-                self._clicked_line = 0
+            line_iter, _ = self._source_view.get_line_at_y(y)
+            self._clicked_line = line_iter.get_line()
 
             self._update_context_menu_sensitivity()
             self._context_menu.popup_at_pointer(event)

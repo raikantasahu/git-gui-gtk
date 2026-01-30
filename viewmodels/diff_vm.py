@@ -130,7 +130,9 @@ class DiffViewModel:
 
     def revert_line(self, file_path, line):
         """Revert a line. View must confirm before calling."""
-        success, message = gitops.revert_line(self._repo_vm.repo, file_path, line)
+        success, message = gitops.revert_line(
+            self._repo_vm.repo, file_path, line, self.context_lines
+        )
         self._repo_vm._status(message)
         if success:
             self._repo_vm.rescan()
