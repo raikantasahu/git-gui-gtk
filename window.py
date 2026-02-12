@@ -168,6 +168,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             'menu_db_stats': lambda w: self._show_database_statistics(),
             'menu_db_compress': lambda w: self._compress_database(),
             'menu_db_verify': lambda w: self._verify_database(),
+            'menu_show_logs': lambda w: self._show_logs_dialog(),
             'menu_quit': lambda w: self.get_application().quit(),
             'menu_create_branch': lambda w: self._show_create_branch_dialog(),
             'menu_checkout_branch': lambda w: self._show_checkout_branch_dialog(),
@@ -678,6 +679,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         if result:
             success, message = self._branch_vm.rebase_branch(result)
             self._show_status_dialog('Rebase', message, success)
+
+    def _show_logs_dialog(self):
+        if not self._repo_vm.repo_path:
+            self._set_status('No repository open', MessageType.WARNING)
+            return
+        dialogs.show_logs_dialog(self, self._repo_vm.repo)
 
     def _show_list_remotes_dialog(self):
         dialogs.show_list_remotes_dialog(self, self._repo_vm.repo)

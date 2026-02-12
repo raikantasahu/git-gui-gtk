@@ -110,6 +110,25 @@
           </object>
         </child>
 
+        <!-- Log Menu -->
+        <child>
+          <object class="GtkMenuItem">
+            <property name="visible">True</property>
+            <property name="label">Log</property>
+            <child type="submenu">
+              <object class="GtkMenu">
+                <property name="visible">True</property>
+                <child>
+                  <object class="GtkMenuItem" id="menu_show_logs">
+                    <property name="visible">True</property>
+                    <property name="label">Show Logs</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
         <!-- Branch Menu -->
         <child>
           <object class="GtkMenuItem">
