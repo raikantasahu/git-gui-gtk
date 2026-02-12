@@ -137,9 +137,11 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         self._unstaged_list.connect('file-selected', self._on_unstaged_file_selected)
         self._unstaged_list.connect('file-activated', self._on_unstaged_file_activated)
         self._unstaged_list.connect('file-revert-requested', self._on_file_revert_requested)
+        self._unstaged_list.connect('file-history-requested', self._on_file_history_requested)
 
         self._staged_list.connect('file-selected', self._on_staged_file_selected)
         self._staged_list.connect('file-activated', self._on_staged_file_activated)
+        self._staged_list.connect('file-history-requested', self._on_file_history_requested)
 
         # --- Signal connections: diff view ---
         self._diff_view.connect('stage-hunk', self._on_stage_hunk)
@@ -402,6 +404,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
                                 'This action cannot be undone.'.format(file_change.path),
                                 'Revert'):
             self._file_list_vm.revert_file(file_change.path)
+
+    def _on_file_history_requested(self, widget, file_change):
+        """Handle show history request from context menu."""
+        if not file_change:
+            return
+        dialogs.show_file_history_dialog(self, self._repo_vm.repo, file_change.path)
 
     def _update_diff_view(self):
         """Push current DiffViewModel state to the DiffView widget."""

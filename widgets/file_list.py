@@ -34,6 +34,7 @@ class FileListWidget(Gtk.Box):
         'file-selected': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         'file-activated': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         'file-revert-requested': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
+        'file-history-requested': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
     }
 
     def __init__(self, title, staged=False):
@@ -189,6 +190,14 @@ class FileListWidget(Gtk.Box):
             revert_item.connect('activate', self._on_context_revert)
             menu.append(revert_item)
 
+        # Separator
+        menu.append(Gtk.SeparatorMenuItem())
+
+        # Show History
+        history_item = Gtk.MenuItem(label='Show History')
+        history_item.connect('activate', self._on_context_show_history)
+        menu.append(history_item)
+
         menu.show_all()
         return menu
 
@@ -221,6 +230,12 @@ class FileListWidget(Gtk.Box):
         file_change = self.get_selected_file()
         if file_change:
             self.emit('file-revert-requested', file_change)
+
+    def _on_context_show_history(self, menu_item):
+        """Handle Show History context menu action."""
+        file_change = self.get_selected_file()
+        if file_change:
+            self.emit('file-history-requested', file_change)
 
     def _get_status_label(self, status):
         """Get status label for a FileStatus."""

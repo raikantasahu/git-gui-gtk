@@ -24,6 +24,7 @@ from .about import show_about_dialog
 from .open_repository import show_open_repository_dialog
 from .message import show_message_dialog, MessageType
 from .confirm import show_confirm_dialog
+from .file_history import show_file_history_dialog
 
 __all__ = [
     'show_push_dialog',
@@ -49,4 +50,5 @@ __all__ = [
     'show_message_dialog',
     'MessageType',
     'show_confirm_dialog',
+    'show_file_history_dialog',
 ]

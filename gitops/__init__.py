@@ -42,6 +42,7 @@ from .add_remote import add_remote
 from .rename_remote import rename_remote
 from .delete_remote import delete_remote
 from .get_log import get_log
+from .get_file_log import get_file_log
 from .get_database_statistics import get_database_statistics
 from .compress_database import compress_database
 from .verify_database import verify_database
@@ -98,6 +99,7 @@ __all__ = [
     'rebase_branch',
     # Log
     'get_log',
+    'get_file_log',
     # Database
     'get_database_statistics',
     'compress_database',
