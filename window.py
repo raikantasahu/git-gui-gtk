@@ -169,6 +169,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             'menu_db_compress': lambda w: self._compress_database(),
             'menu_db_verify': lambda w: self._verify_database(),
             'menu_show_logs': lambda w: self._show_logs_dialog(),
+            'menu_show_file_history': lambda w: self._show_file_history_dialog(),
             'menu_quit': lambda w: self.get_application().quit(),
             'menu_create_branch': lambda w: self._show_create_branch_dialog(),
             'menu_checkout_branch': lambda w: self._show_checkout_branch_dialog(),
@@ -685,6 +686,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._set_status('No repository open', MessageType.WARNING)
             return
         dialogs.show_logs_dialog(self, self._repo_vm.repo)
+
+    def _show_file_history_dialog(self):
+        if not self._repo_vm.repo_path:
+            self._set_status('No repository open', MessageType.WARNING)
+            return
+        dialogs.show_file_history_dialog(self, self._repo_vm.repo, None)
 
     def _show_list_remotes_dialog(self):
         dialogs.show_list_remotes_dialog(self, self._repo_vm.repo)

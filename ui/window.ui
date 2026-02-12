@@ -124,6 +124,12 @@
                     <property name="label">Show Logs</property>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_show_file_history">
+                    <property name="visible">True</property>
+                    <property name="label">Show File History</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
