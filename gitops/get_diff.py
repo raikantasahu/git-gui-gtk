@@ -11,7 +11,8 @@ def get_diff(
     repo_path: Optional[str],
     path: str,
     staged: bool = False,
-    context_lines: int = 3
+    context_lines: int = 3,
+    amend: bool = False
 ) -> str:
     """Get diff for a specific file.
 
@@ -22,6 +23,7 @@ def get_diff(
         staged: If True, show staged diff (index vs HEAD)
                If False, show unstaged diff (working tree vs index)
         context_lines: Number of context lines to show (default 3)
+        amend: If True, compare index to HEAD~1 instead of HEAD
 
     Returns:
         Diff string or error message
@@ -32,8 +34,12 @@ def get_diff(
     try:
         context_arg = f'-U{context_lines}'
         if staged:
-            # Staged: compare index to HEAD
-            diff = repo.git.diff(context_arg, '--cached', '--', path)
+            if amend and repo.head.commit.parents:
+                # Amend: compare index to parent of HEAD
+                diff = repo.git.diff(context_arg, '--cached', 'HEAD~1', '--', path)
+            else:
+                # Staged: compare index to HEAD
+                diff = repo.git.diff(context_arg, '--cached', '--', path)
         else:
             # Check if file is untracked
             if path in repo.untracked_files:

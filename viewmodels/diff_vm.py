@@ -42,6 +42,7 @@ class DiffViewModel:
         self.context_lines = 3
         self.current_file = None
         self._current_diff_staged = False
+        self.amend_mode = False
 
     def show_diff(self, file_change, staged, context_lines=None):
         """Compute diff for a file and store the results.
@@ -54,7 +55,8 @@ class DiffViewModel:
 
         self.diff_text = gitops.get_diff(
             self._repo_vm.repo, self._repo_vm.repo_path, file_change.path,
-            staged=staged, context_lines=self.context_lines
+            staged=staged, context_lines=self.context_lines,
+            amend=self.amend_mode and staged
         )
         self.file_path = file_change.path
         self.status_text = self._get_file_status_text(file_change, staged)

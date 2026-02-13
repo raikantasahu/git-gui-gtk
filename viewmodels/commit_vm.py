@@ -39,14 +39,26 @@ class CommitViewModel:
             (last_commit_message, merged_staged_files) tuple
         """
         last_msg = gitops.get_last_commit_message(self._repo_vm.repo)
-        last_commit_files = gitops.get_last_commit_files(self._repo_vm.repo)
         _, currently_staged = gitops.get_status(self._repo_vm.repo)
+        merged_files = self.get_amend_staged_files(currently_staged)
+        self.amend_mode = True
+        return last_msg, merged_files
+
+    def get_amend_staged_files(self, currently_staged):
+        """Merge last commit files with currently staged files for amend display.
+
+        Args:
+            currently_staged: list of FileChange from the current git index
+
+        Returns:
+            Merged list of FileChange objects
+        """
+        last_commit_files = gitops.get_last_commit_files(self._repo_vm.repo)
         staged_paths = {f.path for f in last_commit_files}
         for f in currently_staged:
             if f.path not in staged_paths:
                 last_commit_files.append(f)
-        self.amend_mode = True
-        return last_msg, last_commit_files
+        return last_commit_files
 
     def leave_amend_mode(self):
         """Leave amend mode and rescan."""

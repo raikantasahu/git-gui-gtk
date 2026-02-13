@@ -61,7 +61,12 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         vm = self._repo_vm
         self._updating_file_lists = True
         self._unstaged_list.set_files(vm.unstaged_files)
-        self._staged_list.set_files(vm.staged_files)
+        if self._commit_vm.amend_mode:
+            self._staged_list.set_files(
+                self._commit_vm.get_amend_staged_files(vm.staged_files)
+            )
+        else:
+            self._staged_list.set_files(vm.staged_files)
         self._updating_file_lists = False
 
         branch = vm.branch_name
@@ -492,6 +497,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         """Handle commit request from commit area."""
         success, result_msg = self._commit_vm.commit(message, amend, sign_off)
         if success:
+            self._diff_vm.amend_mode = False
             self._commit_area.clear_message()
             self._commit_area.set_amend_mode(False)
         else:
@@ -499,6 +505,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
 
     def _on_amend_toggled(self, widget, amend_enabled):
         """Handle amend checkbox toggle."""
+        self._diff_vm.amend_mode = amend_enabled
         if amend_enabled:
             last_msg, files = self._commit_vm.get_amend_data()
             self._commit_area.set_message(last_msg)
@@ -518,6 +525,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             sign_off = self._commit_area.is_signoff_enabled()
         success, result_msg = self._commit_vm.commit(message, amend, sign_off)
         if success:
+            self._diff_vm.amend_mode = False
             self._commit_area.clear_message()
             self._commit_area.set_amend_mode(False)
         else:
@@ -526,6 +534,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
     def toggle_amend(self):
         """Toggle amend mode (called from actions.py)."""
         enabled, last_msg, files = self._commit_vm.toggle_amend()
+        self._diff_vm.amend_mode = enabled
         if enabled:
             self._commit_area.set_amend_mode(True)
             self._commit_area.set_message(last_msg)
