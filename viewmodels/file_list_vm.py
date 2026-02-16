@@ -15,7 +15,7 @@ class FileListViewModel:
 
     def stage_file(self, file_change):
         """Stage a single file."""
-        if gitops.stage_file(self._repo_vm.repo, file_change.path):
+        if gitops.stage_file(self._repo_vm.repo, file_change.path, file_change.status):
             self._repo_vm._status('Staged: ' + file_change.path)
             self._repo_vm.rescan()
         else:
