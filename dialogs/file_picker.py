@@ -22,6 +22,8 @@ def show_file_picker_dialog(parent, repo):
     )
     dialog.set_default_size(500, 400)
     dialog.add_button('Cancel', Gtk.ResponseType.CANCEL)
+    select_button = dialog.add_button('Select', Gtk.ResponseType.OK)
+    select_button.set_sensitive(False)
 
     content = dialog.get_content_area()
     content.set_margin_start(8)
@@ -61,6 +63,7 @@ def show_file_picker_dialog(parent, repo):
 
     tree_view = Gtk.TreeView(model=filter_model)
     tree_view.set_headers_visible(False)
+    tree_view.get_selection().set_mode(Gtk.SelectionMode.SINGLE)
 
     renderer = Gtk.CellRendererText()
     renderer.set_property('family', 'monospace')
@@ -70,33 +73,29 @@ def show_file_picker_dialog(parent, repo):
     scrolled.add(tree_view)
     content.pack_start(scrolled, True, True, 0)
 
-    selected_file = [None]
-
     def on_search_changed(entry):
         filter_model.refilter()
 
+    def on_selection_changed(selection):
+        model, iter_ = selection.get_selected()
+        select_button.set_sensitive(iter_ is not None)
+
     def on_row_activated(tv, path, column):
-        iter_ = filter_model.get_iter(path)
-        if iter_:
-            selected_file[0] = filter_model.get_value(iter_, 0)
-            dialog.response(Gtk.ResponseType.OK)
+        dialog.response(Gtk.ResponseType.OK)
 
     search_entry.connect('search-changed', on_search_changed)
+    tree_view.get_selection().connect('changed', on_selection_changed)
     tree_view.connect('row-activated', on_row_activated)
 
     dialog.show_all()
     response = dialog.run()
 
-    if response == Gtk.ResponseType.OK and selected_file[0]:
-        result = selected_file[0]
+    selection = tree_view.get_selection()
+    model, iter_ = selection.get_selected()
+    if response == Gtk.ResponseType.OK and iter_:
+        result = model.get_value(iter_, 0)
     else:
-        # Check if a row is selected (user might have pressed Enter via search)
-        selection = tree_view.get_selection()
-        model, iter_ = selection.get_selected()
-        if response == Gtk.ResponseType.OK and iter_:
-            result = model.get_value(iter_, 0)
-        else:
-            result = None
+        result = None
 
     dialog.destroy()
     return result
