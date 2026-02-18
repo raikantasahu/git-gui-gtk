@@ -51,7 +51,7 @@ def show_file_history_dialog(parent, repo, file_path):
         transient_for=parent,
         modal=True,
     )
-    dialog.set_default_size(700, 400)
+    dialog.set_default_size(700, 500)
     dialog.add_button('Close', Gtk.ResponseType.CLOSE)
 
     content = dialog.get_content_area()
@@ -97,17 +97,20 @@ def show_file_history_dialog(parent, repo, file_path):
             label.set_vexpand(True)
             history_box.pack_start(label, True, True, 0)
         else:
+            paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+            paned.set_vexpand(True)
+
+            # Top: commit list
             scrolled = Gtk.ScrolledWindow()
-            scrolled.set_vexpand(True)
             scrolled.set_hexpand(True)
             scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 
-            # Columns: short_hash, date, author, message, full_hash (hidden)
-            store = Gtk.ListStore(str, str, str, str, str)
+            # Columns: short_hash, date, author, message_line, full_hash (hidden), full_message (hidden)
+            store = Gtk.ListStore(str, str, str, str, str, str)
             for c in commits:
                 date_str = c['date'][:10] if len(c['date']) >= 10 else c['date']
                 first_line = c['message'].split('\n', 1)[0]
-                store.append([c['short_hash'], date_str, c['author'], first_line, c['hash']])
+                store.append([c['short_hash'], date_str, c['author'], first_line, c['hash'], c['message']])
 
             tree_view = Gtk.TreeView(model=store)
             tree_view.set_headers_visible(True)
@@ -149,7 +152,49 @@ def show_file_history_dialog(parent, repo, file_path):
             tree_view.append_column(msg_col)
 
             scrolled.add(tree_view)
-            history_box.pack_start(scrolled, True, True, 0)
+            paned.pack1(scrolled, resize=True, shrink=False)
+
+            # Bottom: commit details
+            detail_scrolled = Gtk.ScrolledWindow()
+            detail_scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+
+            detail_view = Gtk.TextView()
+            detail_view.set_editable(False)
+            detail_view.set_cursor_visible(False)
+            detail_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+            detail_view.set_left_margin(6)
+            detail_view.set_right_margin(6)
+            detail_view.set_top_margin(6)
+            detail_view.set_bottom_margin(6)
+            detail_view.modify_font(Pango.FontDescription('monospace'))
+
+            detail_scrolled.add(detail_view)
+            paned.pack2(detail_scrolled, resize=True, shrink=False)
+
+            paned.set_position(200)
+
+            def on_selection_changed(selection):
+                model, iter_ = selection.get_selected()
+                buf = detail_view.get_buffer()
+                if iter_:
+                    short_hash = model.get_value(iter_, 0)
+                    date = model.get_value(iter_, 1)
+                    author = model.get_value(iter_, 2)
+                    full_hash = model.get_value(iter_, 4)
+                    message = model.get_value(iter_, 5)
+                    text = (
+                        f'Commit: {full_hash}\n'
+                        f'Author: {author}\n'
+                        f'Date:   {date}\n'
+                        f'\n{message}\n'
+                    )
+                    buf.set_text(text)
+                else:
+                    buf.set_text('')
+
+            tree_view.get_selection().connect('changed', on_selection_changed)
+
+            history_box.pack_start(paned, True, True, 0)
 
         history_box.show_all()
 
