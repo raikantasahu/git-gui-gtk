@@ -97,6 +97,12 @@ def show_file_history_dialog(parent, repo, file_path):
             label.set_vexpand(True)
             history_box.pack_start(label, True, True, 0)
         else:
+            css = Gtk.CssProvider()
+            css.load_from_data(b'.bordered { border: 1px solid @borders; }')
+            screen = Gdk.Screen.get_default()
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
             paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
             paned.set_vexpand(True)
 
@@ -152,11 +158,13 @@ def show_file_history_dialog(parent, repo, file_path):
             tree_view.append_column(msg_col)
 
             scrolled.add(tree_view)
+            scrolled.get_style_context().add_class('bordered')
             paned.pack1(scrolled, resize=True, shrink=False)
 
             # Bottom: commit details
             detail_scrolled = Gtk.ScrolledWindow()
             detail_scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            detail_scrolled.get_style_context().add_class('bordered')
 
             detail_view = Gtk.TextView()
             detail_view.set_editable(False)
