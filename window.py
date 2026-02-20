@@ -310,17 +310,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             self._show_error('Explore Repository', f'Failed to open file browser: {e}')
 
     def _visualize_branch_history(self):
-        """Open gitk to visualize current branch history."""
-        if not self._repo_vm.repo_path:
-            self._set_status('No repository open', MessageType.WARNING)
-            return
-        try:
-            import subprocess
-            subprocess.Popen(['gitk', self._repo_vm.branch_name], cwd=self._repo_vm.repo_path)
-        except FileNotFoundError:
-            self._show_error('Visualize History', 'gitk is not installed. Please install gitk to visualize history.')
-        except Exception as e:
-            self._show_error('Visualize History', f'Failed to open gitk: {e}')
+        """Show branch history using the logs dialog."""
+        self._show_logs_dialog()
 
     def _visualize_all_history(self):
         """Open gitk to visualize all branches history."""
