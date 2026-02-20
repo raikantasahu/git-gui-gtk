@@ -29,7 +29,7 @@ def show_file_history_dialog(parent, repo, file_path):
         transient_for=parent,
         modal=True,
     )
-    dialog.set_default_size(700, 500)
+    dialog.set_default_size(1100, 750)
     dialog.add_button('Close', Gtk.ResponseType.CLOSE)
 
     content = dialog.get_content_area()
@@ -75,7 +75,7 @@ def show_file_history_dialog(parent, repo, file_path):
             label.set_vexpand(True)
             history_box.pack_start(label, True, True, 0)
         else:
-            paned = create_commit_list_pane(commits)
+            paned = create_commit_list_pane(commits, repo=repo)
             history_box.pack_start(paned, True, True, 0)
 
         history_box.show_all()

@@ -20,7 +20,7 @@ def show_logs_dialog(parent, repo):
         transient_for=parent,
         modal=True,
     )
-    dialog.set_default_size(800, 500)
+    dialog.set_default_size(1100, 750)
     dialog.add_button('Close', Gtk.ResponseType.CLOSE)
 
     content = dialog.get_content_area()
@@ -64,7 +64,7 @@ def show_logs_dialog(parent, repo):
             label.set_vexpand(True)
             log_box.pack_start(label, True, True, 0)
         else:
-            paned = create_commit_list_pane(commits, paned_position=250)
+            paned = create_commit_list_pane(commits, repo=repo, paned_position=250)
             log_box.pack_start(paned, True, True, 0)
 
         log_box.show_all()
