@@ -208,6 +208,11 @@ class FileListWidget(Gtk.Box):
         self._open_with_item.connect('activate', self._on_context_open_with)
         menu.append(self._open_with_item)
 
+        # Copy Path
+        copy_path_item = Gtk.MenuItem(label='Copy Path')
+        copy_path_item.connect('activate', self._on_context_copy_path)
+        menu.append(copy_path_item)
+
         menu.show_all()
         return menu
 
@@ -252,6 +257,13 @@ class FileListWidget(Gtk.Box):
         file_change = self.get_selected_file()
         if file_change:
             self.emit('file-history-requested', file_change)
+
+    def _on_context_copy_path(self, menu_item):
+        """Copy the relative file path to the clipboard."""
+        file_change = self.get_selected_file()
+        if file_change:
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.set_text(file_change.path, -1)
 
     def _on_context_open_with(self, menu_item):
         """Handle Open With context menu action using system app chooser."""

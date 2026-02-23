@@ -40,6 +40,17 @@ def _on_copy_hash(menu_item, tree_view):
         clipboard.store()
 
 
+def _on_copy_path(menu_item, tree_view):
+    """Copy the file path of the selected file to clipboard."""
+    selection = tree_view.get_selection()
+    model, iter_ = selection.get_selected()
+    if iter_:
+        file_path = model.get_value(iter_, 1)
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard.set_text(file_path, -1)
+        clipboard.store()
+
+
 def create_commit_list_pane(commits, repo=None, paned_position=200):
     """Build a Gtk.Paned with a commit list TreeView and a details pane.
 
@@ -189,6 +200,16 @@ def create_commit_list_pane(commits, repo=None, paned_position=200):
     path_col = Gtk.TreeViewColumn('File', path_renderer, text=1)
     path_col.set_expand(True)
     files_tree.append_column(path_col)
+
+    # Context menu for file list
+    files_context_menu = Gtk.Menu()
+    copy_path_item = Gtk.MenuItem(label='Copy Path')
+    copy_path_item.connect('activate', _on_copy_path, files_tree)
+    files_context_menu.append(copy_path_item)
+    files_context_menu.show_all()
+
+    files_tree.connect('button-press-event',
+                       lambda w, e: _on_button_press(w, e, files_context_menu))
 
     files_scrolled.add(files_tree)
     diff_files_paned.pack2(files_scrolled, resize=False, shrink=False)
