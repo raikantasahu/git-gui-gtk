@@ -1,10 +1,11 @@
 """File list widget for displaying staged/unstaged files."""
 
+import os
 import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, GObject
+from gi.repository import Gtk, Gdk, Gio, GObject
 
 from gitops import FileChange, FileStatus
 from config import UIConfig
@@ -42,6 +43,7 @@ class FileListWidget(Gtk.Box):
 
         self.staged = staged
         self._files = []
+        self._repo_path = ''
 
         # Apply CSS
         css_provider = Gtk.CssProvider()
@@ -198,6 +200,14 @@ class FileListWidget(Gtk.Box):
         history_item.connect('activate', self._on_context_show_history)
         menu.append(history_item)
 
+        # Separator
+        menu.append(Gtk.SeparatorMenuItem())
+
+        # Open With
+        self._open_with_item = Gtk.MenuItem(label='Open With\u2026')
+        self._open_with_item.connect('activate', self._on_context_open_with)
+        menu.append(self._open_with_item)
+
         menu.show_all()
         return menu
 
@@ -209,6 +219,12 @@ class FileListWidget(Gtk.Box):
             if path_info:
                 path, column, x, y = path_info
                 tree_view.get_selection().select_path(path)
+                # Disable "Open With" for deleted files (no file on disk)
+                fc = self.get_selected_file()
+                can_open = (fc is not None
+                            and fc.status != FileStatus.DELETED
+                            and bool(self._repo_path))
+                self._open_with_item.set_sensitive(can_open)
                 self._context_menu.popup_at_pointer(event)
                 return True
         return False
@@ -237,6 +253,30 @@ class FileListWidget(Gtk.Box):
         if file_change:
             self.emit('file-history-requested', file_change)
 
+    def _on_context_open_with(self, menu_item):
+        """Handle Open With context menu action using system app chooser."""
+        file_change = self.get_selected_file()
+        if not file_change or not self._repo_path:
+            return
+
+        full_path = os.path.join(self._repo_path, file_change.path)
+        gio_file = Gio.File.new_for_path(full_path)
+
+        dialog = Gtk.AppChooserDialog.new(
+            self.get_toplevel(),
+            Gtk.DialogFlags.MODAL,
+            gio_file
+        )
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            app_info = dialog.get_app_info()
+            if app_info:
+                try:
+                    app_info.launch([gio_file], None)
+                except Exception:
+                    pass
+        dialog.destroy()
+
     def _get_status_label(self, status):
         """Get status label for a FileStatus."""
         labels = {
@@ -249,6 +289,10 @@ class FileListWidget(Gtk.Box):
             FileStatus.UNMERGED: 'U',
         }
         return labels.get(status, '?')
+
+    def set_repo_path(self, repo_path):
+        """Set the repository root path for constructing absolute file paths."""
+        self._repo_path = repo_path
 
     def set_files(self, files):
         """Update the file list."""

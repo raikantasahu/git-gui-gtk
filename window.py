@@ -280,6 +280,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         success = self._repo_vm.open_repository(path)
         if success:
             self.set_title('Git GUI - ' + self._repo_vm.repo_name)
+            self._unstaged_list.set_repo_path(self._repo_vm.repo_path)
+            self._staged_list.set_repo_path(self._repo_vm.repo_path)
             RecentRepositoryList.add_recent(self._repo_vm.repo_path)
             self._update_recent_menu()
         else:
@@ -289,6 +291,8 @@ class GitGuiWindow(Gtk.ApplicationWindow):
         """Clear all UI elements."""
         self._unstaged_list.set_files([])
         self._staged_list.set_files([])
+        self._unstaged_list.set_repo_path('')
+        self._staged_list.set_repo_path('')
         self._diff_vm.clear()
         self._diff_view.clear()
         self._branch_label.set_text('')
