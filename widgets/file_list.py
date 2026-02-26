@@ -5,9 +5,10 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, Gdk, Gio, GObject
+from gi.repository import Gtk, Gdk, GObject
 
 from gitops import FileChange, FileStatus
+from dialogs.open_file_with import show_open_file_with_dialog
 from config import UIConfig
 
 
@@ -270,24 +271,8 @@ class FileListWidget(Gtk.Box):
         file_change = self.get_selected_file()
         if not file_change or not self._repo_path:
             return
-
         full_path = os.path.join(self._repo_path, file_change.path)
-        gio_file = Gio.File.new_for_path(full_path)
-
-        dialog = Gtk.AppChooserDialog.new(
-            self.get_toplevel(),
-            Gtk.DialogFlags.MODAL,
-            gio_file
-        )
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            app_info = dialog.get_app_info()
-            if app_info:
-                try:
-                    app_info.launch([gio_file], None)
-                except Exception:
-                    pass
-        dialog.destroy()
+        show_open_file_with_dialog(self.get_toplevel(), full_path)
 
     def _get_status_label(self, status):
         """Get status label for a FileStatus."""

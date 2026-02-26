@@ -1,11 +1,13 @@
 """Shared commit list TreeView + details pane widget."""
 
+import os
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GtkSource', '4')
 from gi.repository import Gtk, Gdk, GtkSource, Pango
 
 import gitops
+from dialogs.open_file_with import show_open_file_with_dialog
 
 
 _STATUS_LABELS = {
@@ -38,6 +40,17 @@ def _on_copy_hash(menu_item, tree_view):
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         clipboard.set_text(full_hash, -1)
         clipboard.store()
+
+
+def _files_open_with(tree_view, repo_path):
+    """Open the selected file with a user-chosen application."""
+    selection = tree_view.get_selection()
+    model, iter_ = selection.get_selected()
+    if not iter_ or not repo_path:
+        return
+    file_path = model.get_value(iter_, 1)
+    full_path = os.path.join(repo_path, file_path)
+    show_open_file_with_dialog(tree_view.get_toplevel(), full_path)
 
 
 def _on_copy_path(menu_item, tree_view):
@@ -203,13 +216,36 @@ def create_commit_list_pane(commits, repo=None, paned_position=200):
 
     # Context menu for file list
     files_context_menu = Gtk.Menu()
+
+    repo_path = repo.working_dir if repo else ''
+
+    open_with_item = Gtk.MenuItem(label='Open With\u2026')
+    open_with_item.connect('activate',
+                           lambda mi: _files_open_with(files_tree, repo_path))
+    files_context_menu.append(open_with_item)
+
     copy_path_item = Gtk.MenuItem(label='Copy Path')
     copy_path_item.connect('activate', _on_copy_path, files_tree)
     files_context_menu.append(copy_path_item)
+
     files_context_menu.show_all()
 
-    files_tree.connect('button-press-event',
-                       lambda w, e: _on_button_press(w, e, files_context_menu))
+    def _on_files_button_press(tree_view, event):
+        if event.button == 3:
+            path_info = tree_view.get_path_at_pos(int(event.x), int(event.y))
+            if path_info:
+                path, column, x, y = path_info
+                tree_view.get_selection().select_path(path)
+                # Disable "Open With" for deleted files
+                model = tree_view.get_model()
+                iter_ = model.get_iter(path)
+                status = model.get_value(iter_, 0) if iter_ else ''
+                open_with_item.set_sensitive(status != 'Deleted')
+                files_context_menu.popup_at_pointer(event)
+                return True
+        return False
+
+    files_tree.connect('button-press-event', _on_files_button_press)
 
     files_scrolled.add(files_tree)
     diff_files_paned.pack2(files_scrolled, resize=False, shrink=False)
