@@ -33,6 +33,23 @@ def show_logs_dialog(parent, repo):
     # --- Top controls row ---
     controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
+    branch_label = Gtk.Label(label='Branch:')
+    controls.pack_start(branch_label, False, False, 0)
+
+    branch_combo = Gtk.ComboBoxText()
+    current_branch = gitops.get_current_branch(repo)
+    all_branches = list(gitops.get_branches(repo))
+    for remote_name in gitops.get_remotes(repo):
+        for rb in gitops.get_remote_branches(repo, remote_name):
+            all_branches.append(f'{remote_name}/{rb}')
+    active_index = 0
+    for i, name in enumerate(all_branches):
+        branch_combo.append_text(name)
+        if name == current_branch:
+            active_index = i
+    branch_combo.set_active(active_index)
+    controls.pack_start(branch_combo, False, False, 0)
+
     count_label = Gtk.Label(label='Commits:')
     controls.pack_start(count_label, False, False, 0)
 
@@ -57,7 +74,8 @@ def show_logs_dialog(parent, repo):
             child.destroy()
 
         max_count = count_spin.get_value_as_int()
-        commits = gitops.get_log(repo, max_count=max_count)
+        selected_branch = branch_combo.get_active_text()
+        commits = gitops.get_log(repo, max_count=max_count, branch=selected_branch)
 
         if not commits:
             label = Gtk.Label(label='No commits found')

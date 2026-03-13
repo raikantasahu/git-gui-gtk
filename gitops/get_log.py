@@ -5,12 +5,13 @@ from typing import Optional
 from git import Repo
 
 
-def get_log(repo: Optional[Repo], max_count: int = 50) -> list[dict]:
+def get_log(repo: Optional[Repo], max_count: int = 50, branch: Optional[str] = None) -> list[dict]:
     """Get commit log.
 
     Args:
         repo: Git repository object
         max_count: Maximum number of commits to return
+        branch: Branch name to show log for (None for current branch)
 
     Returns:
         List of commit dicts with keys: hash, short_hash, author, date, message
@@ -20,7 +21,8 @@ def get_log(repo: Optional[Repo], max_count: int = 50) -> list[dict]:
 
     commits = []
     try:
-        for commit in repo.iter_commits(max_count=max_count):
+        rev = branch if branch else None
+        for commit in repo.iter_commits(rev=rev, max_count=max_count):
             commits.append({
                 'hash': commit.hexsha,
                 'short_hash': commit.hexsha[:7],
