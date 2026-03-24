@@ -181,6 +181,7 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             'menu_rename_branch': lambda w: self._show_rename_branch_dialog(),
             'menu_delete_branch': lambda w: self._show_delete_branch_dialog(),
             'menu_reset_branch': lambda w: self._show_reset_branch_dialog(),
+            'menu_compare_branches': lambda w: self._show_compare_branches_dialog(),
             'menu_merge': lambda w: self._show_merge_dialog(),
             'menu_rebase': lambda w: self._show_rebase_dialog(),
             'menu_list_remotes': lambda w: self._show_list_remotes_dialog(),
@@ -671,6 +672,9 @@ class GitGuiWindow(Gtk.ApplicationWindow):
             success, message = self._branch_vm.reset_branch(target, mode)
             if not success:
                 self._show_error('Reset Branch Error', message)
+
+    def _show_compare_branches_dialog(self):
+        dialogs.show_compare_branches_dialog(self, self._repo_vm.repo)
 
     def _show_merge_dialog(self):
         result = dialogs.show_merge_dialog(self, self._repo_vm.repo)

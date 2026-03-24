@@ -28,6 +28,7 @@ from .file_picker import show_file_picker_dialog
 from .file_history import show_file_history_dialog
 from .logs import show_logs_dialog
 from .open_file_with import show_open_file_with_dialog
+from .compare_branches import show_compare_branches_dialog
 
 __all__ = [
     'show_push_dialog',
@@ -57,4 +58,5 @@ __all__ = [
     'show_file_history_dialog',
     'show_logs_dialog',
     'show_open_file_with_dialog',
+    'show_compare_branches_dialog',
 ]

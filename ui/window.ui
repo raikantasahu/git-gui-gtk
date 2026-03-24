@@ -178,6 +178,17 @@
                     <property name="label">Reset...</property>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkSeparatorMenuItem">
+                    <property name="visible">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkMenuItem" id="menu_compare_branches">
+                    <property name="visible">True</property>
+                    <property name="label">Compare...</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
