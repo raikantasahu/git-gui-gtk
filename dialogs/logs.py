@@ -61,12 +61,21 @@ def show_logs_dialog(parent, repo):
     refresh_btn = Gtk.Button(label='Refresh')
     controls.pack_start(refresh_btn, False, False, 0)
 
+    prev_btn = Gtk.Button(label='<< Previous')
+    next_btn = Gtk.Button(label='Next >>')
+    page_label = Gtk.Label(label='')
+    controls.pack_end(next_btn, False, False, 0)
+    controls.pack_end(prev_btn, False, False, 0)
+    controls.pack_end(page_label, False, False, 6)
+
     content.pack_start(controls, False, False, 0)
 
     # --- Container for log content ---
     log_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     log_box.set_vexpand(True)
     content.pack_start(log_box, True, True, 0)
+
+    state = {'skip': 0}
 
     def _load_log():
         for child in log_box.get_children():
@@ -75,10 +84,30 @@ def show_logs_dialog(parent, repo):
 
         max_count = count_spin.get_value_as_int()
         selected_branch = branch_combo.get_active_text()
-        commits = gitops.get_log(repo, max_count=max_count, branch=selected_branch)
+        # Fetch one extra commit to detect if a next page exists
+        commits = gitops.get_log(
+            repo,
+            max_count=max_count + 1,
+            branch=selected_branch,
+            skip=state['skip'],
+        )
+        has_next = len(commits) > max_count
+        commits = commits[:max_count]
+
+        prev_btn.set_sensitive(state['skip'] > 0)
+        next_btn.set_sensitive(has_next)
+
+        if commits:
+            first = state['skip'] + 1
+            last = state['skip'] + len(commits)
+            page_label.set_text(f'{first}–{last}')
+        else:
+            page_label.set_text('')
 
         if not commits:
-            label = Gtk.Label(label='No commits found')
+            label = Gtk.Label(
+                label='No more commits' if state['skip'] > 0 else 'No commits found'
+            )
             label.set_vexpand(True)
             log_box.pack_start(label, True, True, 0)
         else:
@@ -87,7 +116,23 @@ def show_logs_dialog(parent, repo):
 
         log_box.show_all()
 
-    refresh_btn.connect('clicked', lambda w: _load_log())
+    def _on_refresh(_w):
+        state['skip'] = 0
+        _load_log()
+
+    def _on_prev(_w):
+        max_count = count_spin.get_value_as_int()
+        state['skip'] = max(0, state['skip'] - max_count)
+        _load_log()
+
+    def _on_next(_w):
+        max_count = count_spin.get_value_as_int()
+        state['skip'] += max_count
+        _load_log()
+
+    refresh_btn.connect('clicked', _on_refresh)
+    prev_btn.connect('clicked', _on_prev)
+    next_btn.connect('clicked', _on_next)
 
     _load_log()
 

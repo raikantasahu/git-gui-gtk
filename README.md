@@ -10,7 +10,7 @@ A modern GTK3 replacement for the classic `git-gui` tool. Provides a graphical i
 - **Partial Staging**: Stage or unstage individual hunks or even single lines via right-click context menu
 - **Partial Reverting**: Revert individual hunks or lines to discard specific changes
 - **Commits**: Create commits with messages, amend previous commits, sign-off support
-- **Logs**: Show logs of branches, individual files
+- **Logs**: Show logs of branches, individual files, with Previous/Next pagination to walk through older or newer commits
 - **Branches**: Create, checkout, rename, delete, reset, compare branches with multiple options
 - **Merge**: Merge branches with strategy options (default, no-ff, ff-only, squash)
 - **Rebase**: Rebase current branch onto local branches, tracking branches, or tags
@@ -34,6 +34,10 @@ A modern GTK3 replacement for the classic `git-gui` tool. Provides a graphical i
 *Compare Branches*
 
 ![Compare Branches](screenshots/compare-branches-dialog.png)
+
+*Previous/Next navigation in log views*
+
+![Previous and Next Navigation](screenshots/Previous-and-Next-Navigation.png)
 
 ## Requirements
 

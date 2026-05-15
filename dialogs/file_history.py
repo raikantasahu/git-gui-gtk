@@ -57,10 +57,23 @@ def show_file_history_dialog(parent, repo, file_path):
 
     content.pack_start(controls_box, False, False, 0)
 
+    # Pagination controls row
+    nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    prev_btn = Gtk.Button(label='<< Previous')
+    next_btn = Gtk.Button(label='Next >>')
+    page_label = Gtk.Label(label='')
+    nav_box.pack_end(next_btn, False, False, 0)
+    nav_box.pack_end(prev_btn, False, False, 0)
+    nav_box.pack_end(page_label, False, False, 6)
+    content.pack_start(nav_box, False, False, 0)
+
     # Container for history content (below controls)
     history_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     history_box.set_vexpand(True)
     content.pack_start(history_box, True, True, 0)
+
+    PAGE_SIZE = 50
+    state = {'skip': 0, 'file_path': file_path}
 
     def _load_history(fp):
         # Clear previous history content
@@ -68,10 +81,27 @@ def show_file_history_dialog(parent, repo, file_path):
             history_box.remove(child)
             child.destroy()
 
-        commits = gitops.get_file_log(repo, fp)
+        # Fetch one extra commit to detect if a next page exists
+        commits = gitops.get_file_log(
+            repo, fp, max_count=PAGE_SIZE + 1, skip=state['skip']
+        )
+        has_next = len(commits) > PAGE_SIZE
+        commits = commits[:PAGE_SIZE]
+
+        prev_btn.set_sensitive(state['skip'] > 0)
+        next_btn.set_sensitive(has_next)
+
+        if commits:
+            first = state['skip'] + 1
+            last = state['skip'] + len(commits)
+            page_label.set_text(f'{first}–{last}')
+        else:
+            page_label.set_text('')
 
         if not commits:
-            label = Gtk.Label(label='No history found')
+            label = Gtk.Label(
+                label='No more history' if state['skip'] > 0 else 'No history found'
+            )
             label.set_vexpand(True)
             history_box.pack_start(label, True, True, 0)
         else:
@@ -85,9 +115,21 @@ def show_file_history_dialog(parent, repo, file_path):
         if new_path:
             file_label.set_text(new_path)
             dialog.set_title(f'History: {new_path}')
+            state['file_path'] = new_path
+            state['skip'] = 0
             _load_history(new_path)
 
+    def _on_prev(_w):
+        state['skip'] = max(0, state['skip'] - PAGE_SIZE)
+        _load_history(state['file_path'])
+
+    def _on_next(_w):
+        state['skip'] += PAGE_SIZE
+        _load_history(state['file_path'])
+
     pick_button.connect('clicked', on_pick_file_clicked)
+    prev_btn.connect('clicked', _on_prev)
+    next_btn.connect('clicked', _on_next)
 
     _load_history(file_path)
 
