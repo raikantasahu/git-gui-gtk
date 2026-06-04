@@ -167,6 +167,14 @@ class DiffView(Gtk.Box):
         """Create the right-click context menu."""
         self._context_menu = Gtk.Menu()
 
+        # Copy selected text
+        self._copy_item = Gtk.MenuItem(label='Copy')
+        self._copy_item.connect('activate', self._on_copy)
+        self._context_menu.append(self._copy_item)
+
+        # Separator
+        self._context_menu.append(Gtk.SeparatorMenuItem())
+
         # Stage Hunk for Commit
         self._stage_hunk_item = Gtk.MenuItem(label='Stage Hunk for Commit')
         self._stage_hunk_item.connect('activate', self._on_stage_hunk)
@@ -225,6 +233,9 @@ class DiffView(Gtk.Box):
         has_file = self._current_file is not None
         has_diff = len(self.get_diff_text().strip()) > 0
 
+        # Copy available only when text is selected
+        self._copy_item.set_sensitive(bool(self._buffer.get_selection_bounds()))
+
         # Stage/unstage items available for tracked files
         can_stage_unstage = has_file and has_diff and not self._is_untracked
         self._stage_hunk_item.set_sensitive(can_stage_unstage)
@@ -247,6 +258,15 @@ class DiffView(Gtk.Box):
         can_change_context = has_file and has_diff and not self._is_untracked
         self._more_context_item.set_sensitive(can_change_context)
         self._less_context_item.set_sensitive(can_change_context and self._context_lines > 0)
+
+    def _on_copy(self, widget):
+        """Copy the selected text in the diff view to the clipboard."""
+        bounds = self._buffer.get_selection_bounds()
+        if bounds:
+            text = self._buffer.get_text(bounds[0], bounds[1], True)
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.set_text(text, -1)
+            clipboard.store()
 
     def _on_stage_hunk(self, widget):
         """Handle Stage/Unstage Hunk action."""
