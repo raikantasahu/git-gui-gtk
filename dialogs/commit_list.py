@@ -31,6 +31,31 @@ def _on_button_press(tree_view, event, context_menu):
     return False
 
 
+def _on_diff_populate_popup(text_view, popup):
+    """Replace the diff view's default context menu with a single Copy item."""
+    if not isinstance(popup, Gtk.Menu):
+        return
+    for child in popup.get_children():
+        popup.remove(child)
+
+    buffer = text_view.get_buffer()
+    copy_item = Gtk.MenuItem(label='Copy')
+    copy_item.set_sensitive(bool(buffer.get_selection_bounds()))
+    copy_item.connect('activate', _on_diff_copy, buffer)
+    popup.append(copy_item)
+    popup.show_all()
+
+
+def _on_diff_copy(menu_item, buffer):
+    """Copy the selected diff text to the clipboard."""
+    bounds = buffer.get_selection_bounds()
+    if bounds:
+        text = buffer.get_text(bounds[0], bounds[1], True)
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard.set_text(text, -1)
+        clipboard.store()
+
+
 def _on_copy_hash(menu_item, tree_view):
     """Copy the full hash of the selected commit to clipboard."""
     selection = tree_view.get_selection()
@@ -188,6 +213,7 @@ def create_commit_list_pane(commits, repo=None, paned_position=200):
     diff_view.set_monospace(True)
     diff_view.set_wrap_mode(Gtk.WrapMode.NONE)
     diff_view.set_tab_width(4)
+    diff_view.connect_after('populate-popup', _on_diff_populate_popup)
 
     diff_scrolled.add(diff_view)
     diff_files_paned.pack1(diff_scrolled, resize=True, shrink=False)

@@ -6,6 +6,7 @@ gi.require_version('GtkSource', '4')
 from gi.repository import Gtk, Gdk, GtkSource, Pango
 
 import gitops
+from dialogs.commit_list import _on_diff_populate_popup
 
 
 _STATUS_LABELS = {
@@ -141,6 +142,7 @@ def show_compare_branches_dialog(parent, repo):
     diff_view.set_monospace(True)
     diff_view.set_wrap_mode(Gtk.WrapMode.NONE)
     diff_view.set_tab_width(4)
+    diff_view.connect_after('populate-popup', _on_diff_populate_popup)
 
     diff_scrolled.add(diff_view)
     paned.pack2(diff_scrolled, resize=True, shrink=False)
